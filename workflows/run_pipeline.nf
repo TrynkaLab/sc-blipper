@@ -2,7 +2,8 @@
 
 include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
 include { merge_h5ad } from '../processes/merging.nf'
-include {fetch_gene_id_reference} from "../proccesses/convert_gene.nf"
+include { fetch_gene_id_reference } from "../processes/convert_gene.nf"
+include { prepare_cnmf } from "../processes/cnmf.nf"
 
 // Main workflow
 workflow run_pipeline {
@@ -10,9 +11,13 @@ workflow run_pipeline {
     main:
         // If needed, fetch ensembl file
         if (params.convert.convert_gene_names) {
-            id_linker = file(params.convert.ensembl_id_linker)
             
-            if (!id_linker.exists()) {
+            if (params.convert.ensembl_id_linker != null) {
+                id_linker = file(params.convert.ensembl_id_linker)
+                if (!id_linker.exists()) {
+                    id_linker = fetch_gene_id_reference(params.convert.ensembl_version)
+                }
+            } else {
                 id_linker = fetch_gene_id_reference(params.convert.ensembl_version)
             }
         }
@@ -46,6 +51,9 @@ workflow run_pipeline {
         // Merge the .h5ad files into a single file
         merge_out = merge_h5ad(params.rn_runname, convert_out_flat)
 
+        // Prepare the cnmf file
+        cnmf_out = prepare_cnmf(merge_out)
+        
         // Optionally run Harmony correction as implemented by cNMF
     
 }
