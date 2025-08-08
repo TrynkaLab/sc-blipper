@@ -1,5 +1,4 @@
-
-
+#!/usr/bin/env nextflow
 
 process fetch_gene_id_reference {
     label "tiny"
@@ -13,16 +12,16 @@ process fetch_gene_id_reference {
         path("linker_*")
     script:
     
-    if (file.fileName.name == "NO_LINKER") {
-        cmd =
-        """
-        ./fetch_ensembl_genes.r ${version} linker_ensembl_v${version}.tsv
-        """  
-    } else {
-        cmd =
-        """
-        mv ${file} linker_${file.fileName.name}
-        """
-    }
+    //if (file.fileName.name == "NO_LINKER") {
+    cmd =
+    """
+    ./fetch_ensembl_genes.r ${version} linker_ensembl_v${version}.tsv
+    """  
+    //} else {
+    //    cmd =
+    //    """
+    //    mv ${file} linker_${file.fileName.name}
+    //    """
+    // }
 }
 

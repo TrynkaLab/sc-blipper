@@ -2,6 +2,9 @@
 
 library(biomaRt)
 
+Sys.setenv(SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt")
+Sys.setenv(CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt")
+
 # Construct archived Ensembl BioMart host URL
 # For example, version = "104" ==> host = "https://apr2021.archive.ensembl.org"
 # Ensembl archived URLs correspond to release date, approximate mapping required:
@@ -50,10 +53,6 @@ fetch_unique_genes <- function(ensembl_version, output_file) {
   }
   
   host_url <- paste0("https://", version_map[[as.character(ensembl_version)]], ".archive.ensembl.org")
-
-  ensembl <- useEnsembl(biomart = "genes",
-                       dataset = "hsapiens_gene_ensembl")
-
 
   # Connect to the archive BioMart
   mart <- useMart(biomart = "ENSEMBL_MART_ENSEMBL",
