@@ -3,7 +3,7 @@
 include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
 include { merge_h5ad } from '../processes/merging.nf'
 include { fetch_gene_id_reference } from "../processes/convert_gene.nf"
-include { prepare_cnmf } from "../processes/cnmf.nf"
+include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_consensus } from "../processes/cnmf.nf"
 
 // Main workflow
 workflow run_pipeline {
@@ -50,10 +50,44 @@ workflow run_pipeline {
 
         // Merge the .h5ad files into a single file
         merge_out = merge_h5ad(params.rn_runname, convert_out_flat)
-
-        // Prepare the cnmf file
-        cnmf_out = prepare_cnmf(merge_out)
         
-        // Optionally run Harmony correction as implemented by cNMF
-    
+        if (params.cnmf.preprocess) {
+            // Preprocess the cnmf file
+            cnmf_preprocess = cnmf_pre_process(merge_out)
+            
+            // Channel with run name and .h5ad file with counts
+            cnmf_in = cnmf_preprocess.preproccessed
+        } else {
+            // Otherwise use the merged file, in case there is one batch,
+            // just uses the otehr file
+            cnmf_in = merge_out
+        }
+            
+        //--------------------------------------------------------
+        //                       cNMF
+        //--------------------------------------------------------
+        // Prepare the cnmf input folder 
+        cnmf_prepared = cnmf_prepare(cnmf_in)
+        
+        // Create the channel with the n_workers for jobs to run in parallel
+        cnmf_factorize_in = cnmf_prepared
+         .first()
+         .map { v -> (0..(params.cnmf.n_workers-1)).collect{ i -> tuple(*v, i) } }
+         .flatMap()
+        
+        // Perform the factorizations
+        cnmf_factorize_out = cnmf_factorize(cnmf_factorize_in)
+        
+        // Wait for all the workers to complete, then:
+        // Flatten all the output into a single path object
+        cnmf_factorize_out = cnmf_factorize_out.collect()
+        
+        // Combine the output   
+        cmf_out = cnmf_combine(cnmf_prepared, cnmf_factorize_out)     
+ 
+        // Create the consensus factorization and make the plots
+        cnmf_consensus(cnmf_prepared, cmf_out)
+        
+        //--------------------------------------------------------
+
 }
