@@ -3,7 +3,7 @@
 include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
 include { merge_h5ad } from '../processes/merging.nf'
 include { fetch_gene_id_reference } from "../processes/convert_gene.nf"
-include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_consensus } from "../processes/cnmf.nf"
+include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 
 // Main workflow
 workflow run_pipeline {
@@ -71,7 +71,6 @@ workflow run_pipeline {
         
         // Create the channel with the n_workers for jobs to run in parallel
         cnmf_factorize_in = cnmf_prepared
-         .first()
          .map { v -> (0..(params.cnmf.n_workers-1)).collect{ i -> tuple(*v, i) } }
          .flatMap()
         
@@ -85,9 +84,15 @@ workflow run_pipeline {
         // Combine the output   
         cmf_out = cnmf_combine(cnmf_prepared, cnmf_factorize_out)     
  
-        // Create the consensus factorization and make the plots
-        cnmf_consensus(cnmf_prepared, cmf_out)
+        // Make the k selection plot
+        cnmf_kselection(cnmf_prepared, cmf_out)
         
+        // Make the consensus factorizations
+        cnmf_consensus_in = cnmf_prepared
+         .map { v -> (params.cnmf.k).collect{ i -> tuple(*v, i) } }
+         .flatMap()
+        cnmf_consensus(cnmf_consensus_in, cmf_out)
+
         //--------------------------------------------------------
 
 }

@@ -153,7 +153,7 @@ process cnmf_combine {
         cmd
 }
 
-process cnmf_consensus {
+process cnmf_kselection {
     label params.cnmf.label
     scratch params.rn_scratch
     
@@ -166,7 +166,7 @@ process cnmf_consensus {
         tuple val(id), path(file)
         path(merged)
     output:
-        tuple val(id), path("${id}")
+        path("${id}/${id}.k_selection*")
         
     script:
         cmd = 
@@ -190,12 +190,52 @@ process cnmf_consensus {
         
         # K selection plot for cNMF
         cnmf k_selection_plot --output-dir ./ --name ${id}
+        """
+    
+        cmd
+}
+
+
+process cnmf_consensus {
+    label params.cnmf.label
+    scratch params.rn_scratch
+    
+    container params.cnmf.container
+    conda params.cnmf.conda
+    // I dont think this needs to be publised long term, but for now its handy for debugging
+    publishDir "$params.rn_publish_dir/cnmf/consensus/k_${k}/", mode: 'symlink'
+    
+    input:
+        tuple val(id), path(file), val(k)
+        path(merged)
+    output:
+        path("${id}/${id}*")
+        
+    script:
+        cmd = 
+        """
+        # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir
+        
+        # Make a tmpdir to store the symlinks to the output of the prepare process
+        mkdir -p tmp
+        mv ${file} tmp/
+        
+        # Create an output folder in the workdir with the same name
+        mkdir -p ${id}/cnmf_tmp
+        
+        # Symlink the files, not the whole folder, this will trick cNMF into thinking it is the same folder
+        ln -s \$(pwd)/tmp/${file}/cnmf_tmp/* ${id}/cnmf_tmp/
+        ln -s \$(pwd)/tmp/${file}/*.overdispersed_genes.txt ${id}/
+        mv ${merged} ${id}/cnmf_tmp/
+        
+        # Now we can run the process, so the output is written to the ${id} in the workdir, 
+        # not the symlinked one
         
         # Consensus for cNMF
         cnmf consensus \
         --output-dir ./ \
         --name ${id} \
-        --components ${params.cnmf.components} \
+        --components ${k} \
         --local-density-threshold ${params.cnmf.local_density} \
         --show-clustering
         """
