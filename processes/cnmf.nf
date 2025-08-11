@@ -46,7 +46,8 @@ process cnmf_prepare {
     container params.cnmf.container
     conda params.cnmf.conda
 
-    publishDir "$params.rn_publish_dir/cnmf/prepare/", mode: 'symlink'
+    // This doesn't really need to be published
+    //publishDir "$params.rn_publish_dir/cnmf/prepare/", mode: 'symlink'
     
     input:
         tuple val(id), path(file)
@@ -202,7 +203,7 @@ process cnmf_consensus {
     container params.cnmf.container
     conda params.cnmf.conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
-    publishDir "$params.rn_publish_dir/cnmf/consensus/k_${k}/", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_${k}/", mode: 'symlink'
     
     input:
         tuple val(id), path(file), val(k)
