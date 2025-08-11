@@ -46,10 +46,10 @@ version_map <- list(
 )
 
 
-fetch_unique_genes <- function(ensembl_version, output_file) {
+fetch_unique_genes <- function(ensembl_version, output_file, merging_strat="first") {
   
   if (!(ensembl_version %in% names(version_map))) {
-    stop("Version not supported or invalid. Please add the mapping for your Ensembl version in version_map.")
+    stop("Version not supported or invalid. Please add the mapping for your Ensembl version in the version_map of this script. Current versions avaliable betwen 84-114")
   }
   
   host_url <- paste0("https://", version_map[[as.character(ensembl_version)]], ".archive.ensembl.org")
@@ -60,16 +60,33 @@ fetch_unique_genes <- function(ensembl_version, output_file) {
                   host=host_url)
 
   # Query attributes: ensembl_gene_id, external_gene_name, gene_biotype
-  genes <- getBM(attributes = c("ensembl_gene_id", "external_gene_name", "gene_biotype"),
+  attr <- c("ensembl_gene_id", "hgnc_symbol", "gene_biotype", "chromosome_name", "start_position", "end_position", "strand", "external_gene_name", "source")
+  genes <- getBM(attributes = attr,
                  mart = mart)
 
   # Remove duplicates by ensembl_gene_id
   genes_unique <- genes[!duplicated(genes$ensembl_gene_id), ]
 
   # Write to output file
-  write.table(genes_unique, file = output_file, sep = "\t", quote = FALSE, row.names = FALSE,
-              col.names = c("Ensembl_ID", "Gene_Name", "Gene_Biotype"))
+  write.table(genes_unique, file = paste0(output_file, "_ensembl.tsv"), sep = "\t", quote = FALSE, row.names = FALSE,
+              col.names = attr)
+              
+  gene_linker <- genes_unique[,c("hgnc_symbol", "ensembl_gene_id")]
 
+  if (merging_strat == "first") {
+    gene_linker[is.na(gene_linker$hgnc_symbol), 1] <- "NO_NAME"
+    gene_linker[gene_linker$hgnc_symbol == "", 1] <- "NO_NAME"
+    gene_linker[gene_linker$hgnc_symbol == "NO_NAME", 1] <- make.unique(gene_linker[gene_linker$hgnc_symbol == "NO_NAME", 1], sep="_")
+  } else {
+    stop("No other option then 'first' currenly implementedq")
+  }
+
+  write.table(gene_linker, file = paste0(output_file, "_name_to_ensembl.tsv"), sep = "\t", quote = FALSE, row.names = FALSE,
+              col.names = FALSE)
+              
+  write.table(gene_linker[,c(2,1)], file = paste0(output_file, "_ensembl_to_name.tsv"), sep = "\t", quote = FALSE, row.names = FALSE,
+            col.names = FALSE)
+              
   message(sprintf("Unique genes for Ensembl version %s saved to %s", ensembl_version, output_file))
 }
 
@@ -85,5 +102,7 @@ if (!interactive()) {
   }
   version <- args[1]
   outfile <- args[2]
-  fetch_unique_genes(version, outfile)
+  #merging_strat = args[3]
+  merging_strat="first"
+  fetch_unique_genes(version, outfile, merging_strat)
 }

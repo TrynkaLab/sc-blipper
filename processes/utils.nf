@@ -12,19 +12,15 @@ process fetch_gene_id_reference {
     input:
         val(version)
     output:
-        path("linker_*")
+        path("v*_ensembl.tsv", emit: ensembl)
+        path("v*_name_to_ensembl.tsv", emit: name_to_ensembl)
+        path("v*_ensembl_to_name.tsv", emit: ensembl_to_name)
     script:
     
-    //if (file.fileName.name == "NO_LINKER") {
     cmd =
     """
-    fetch_ensembl_genes.r ${version} linker_ensembl_v${version}.tsv
+    fetch_ensembl_genes.r ${version} v${version}
     """  
-    //} else {
-    //    cmd =
-    //    """
-    //    mv ${file} linker_${file.fileName.name}
-    //    """
-    // }
 }
+
 

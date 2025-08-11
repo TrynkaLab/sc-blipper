@@ -195,7 +195,6 @@ process cnmf_kselection {
         cmd
 }
 
-
 process cnmf_consensus {
     label params.cnmf.label
     scratch params.rn_scratch
@@ -238,6 +237,9 @@ process cnmf_consensus {
         --components ${k} \
         --local-density-threshold ${params.cnmf.local_density} \
         --show-clustering
+        
+        # Zip the textfiles
+        find ${id} -maxdepth 1 -type f -name "*.txt" ! -xtype l -exec gzip {} \;
         """
     
         cmd

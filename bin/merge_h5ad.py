@@ -1,42 +1,83 @@
-#!/usr/bin/env python
-
+#!/usr/bin/env python3
 import anndata as ad
 import sys
 import os
+import argparse
 
 def basename_no_ext(filepath):
-    base = os.path.basename(filepath)  # Get the file name with extension(s)
+    base = os.path.basename(filepath)
     while True:
         base, ext = os.path.splitext(base)
         if not ext:
             break
     return base
 
-def merge_h5ad_files(output_file, input_files):
-
-    # Read all the input h5ad files into AnnData objects
+def merge_h5ad_files(output_file, input_files, overlap_only=False, nonoverlap_file=None):
+    # Read all the input h5ad files
     adatas = [ad.read_h5ad(f) for f in input_files]
 
-    # Append batch names as prefix to obs_ids per batch before concatenation
-    batch_names=[]
+    common_genes = None
+    non_overlapping_records = []
+
+    if overlap_only:
+        print("Finding overlapping genes across all datasets...")
+        # Get the intersection
+        common_genes = set(adatas[0].var_names)
+        for a in adatas[1:]:
+            common_genes &= set(a.var_names)
+
+        if not common_genes:
+            print("No overlapping genes found! Exiting.")
+            sys.exit(1)
+
+        common_genes = sorted(list(common_genes))
+        print(f"Found {len(common_genes)} overlapping genes.")
+
+        # Capture non-overlapping genes by dataset
+        for fname, a in zip(input_files, adatas):
+            unique_genes = sorted(set(a.var_names) - set(common_genes))
+            if unique_genes:
+                for gene in unique_genes:
+                    non_overlapping_records.append((basename_no_ext(fname), gene))
+                print(f"{len(unique_genes)} non-overlapping genes in {fname}")
+
+        # Save to file if requested
+        if non_overlapping_records and nonoverlap_file:
+            with open(nonoverlap_file, "w") as fh:
+                fh.write("file\tgene\n")
+                for src, gene in non_overlapping_records:
+                    fh.write(f"{src}\t{gene}\n")
+            print(f"Non-overlapping genes written to {nonoverlap_file}")
+
+        # Subset to only overlapping genes
+        adatas = [a[:, common_genes] for a in adatas]
+
+    # Append batch names as prefix to obs_names
+    batch_names = []
     for batch_name, adata in zip(input_files, adatas):
         batch_name = basename_no_ext(batch_name)
         adata.obs_names = [f"{batch_name}_{obs_id}" for obs_id in adata.obs_names]
         batch_names.append(batch_name)
 
-    # Concatenate the AnnData objects along the observation axis (cells)
-    merged = ad.concat(adatas, join='outer', label='orig_h5ad', keys=batch_names)
+    # Merge AnnData
+    join_type = 'outer' if not overlap_only else 'inner'
+    merged = ad.concat(adatas, join=join_type, label='orig_h5ad', keys=batch_names)
 
-    # Write the merged AnnData object to the output h5ad file
     merged.write_h5ad(output_file)
     print(f"Merged {len(input_files)} files into {output_file}")
 
 
+
 if __name__ == "__main__":
-    # Example usage: python merge_h5ad.py merged.h5ad file1.h5ad file2.h5ad file3.h5ad
-    if len(sys.argv) < 3:
-        print("Usage: python merge_h5ad.py output.h5ad input1.h5ad input2.h5ad ...")
-        sys.exit(1)
-    output = sys.argv[1]
-    inputs = sys.argv[2:]
-    merge_h5ad_files(output, inputs)
+    parser = argparse.ArgumentParser(description="Merge multiple .h5ad files.")
+    parser.add_argument("output", help="Output merged h5ad file")
+    parser.add_argument("inputs", nargs="+", help="Input .h5ad files")
+    parser.add_argument("--overlap", action="store_true",
+                        help="Only keep genes present in ALL input files before merging. Otherwise they are put as NA in the count matrix")
+    parser.add_argument("--nonoverlap_file", default="non_overlapping_genes.tsv",
+                        help="Path to save non-overlapping genes table (TSV)")
+    args = parser.parse_args()
+
+    merge_h5ad_files(args.output, args.inputs,
+                     overlap_only=args.overlap,
+                     nonoverlap_file=args.nonoverlap_file)

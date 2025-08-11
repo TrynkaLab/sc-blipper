@@ -2,7 +2,7 @@
 
 include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
 include { merge_h5ad } from '../processes/merging.nf'
-include { fetch_gene_id_reference } from "../processes/convert_gene.nf"
+include { fetch_gene_id_reference } from "../processes/utils.nf"
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 
 // Main workflow
@@ -11,15 +11,25 @@ workflow run_pipeline {
     main:
         // If needed, fetch ensembl file
         if (params.convert.convert_gene_names) {
-            
-            if (params.convert.ensembl_id_linker != null) {
-                id_linker = file(params.convert.ensembl_id_linker)
+            if (params.convert.id_linker != null) {
+                id_linker = file(params.convert.id_linker)
                 if (!id_linker.exists()) {
-                    id_linker = fetch_gene_id_reference(params.convert.ensembl_version)
+                    throw new Exception("Supplied id linker file does not exist")
                 }
+                // Custom conversion file
+                id_linker = Channel.value(file(params.convert.id_linker))
             } else {
-                id_linker = fetch_gene_id_reference(params.convert.ensembl_version)
+                if (params.convert.ensembl_to_gene) {
+                    // ENSEMBL > gene name conversion
+                    id_linker = fetch_gene_id_reference(params.convert.ensembl_version).ensembl_to_name
+                } else {
+                    // gene name > ENSEMBL conversion
+                    id_linker = fetch_gene_id_reference(params.convert.ensembl_version).name_to_ensembl
+                }
             }
+        } else {
+            // In case there is no mapping file
+            id_linker = Channel.value(file("NO_MAPPING"))
         }
     
         //------------------------------------------------------------
@@ -29,7 +39,8 @@ workflow run_pipeline {
             .splitCsv(header:true, sep:"\t")
             .map { row -> tuple(
             row.id,
-            file(row.file))}
+            file(row.file),
+            row.convert_ids)}
         
         // Auto detect if it is a h5ad already or a seurat file
         manifest_split = manifest.branch{ it ->
@@ -39,18 +50,21 @@ workflow run_pipeline {
         }
         
         // Converts seurat files to h5ad
-        convert_out_a = seurat_to_h5ad(manifest_split.seu)
+        convert_out_a = seurat_to_h5ad(manifest_split.seu, id_linker).h5ad
 
         // Converts just symplink h5ad the files so they are in the ouput
-        convert_out_b = link_h5ad(manifest_split.h5ad)
+        // In case conversion is needed, do that here
+        convert_out_b = link_h5ad(manifest_split.h5ad, id_linker).h5ad
 
         // Merge the channels, they should now contain all h5ad files
         convert_out = convert_out_a.concat(convert_out_b)
         convert_out_flat = convert_out.flatMap{row -> {row[1]}}.collect()
 
         // Merge the .h5ad files into a single file
-        merge_out = merge_h5ad(params.rn_runname, convert_out_flat)
+        merge_out = merge_h5ad(params.rn_runname, convert_out_flat).merged
         
+        //--------------------------------------------------------
+        // Optionally run cNMF preprocessing, which creates harmony corrected counts
         if (params.cnmf.preprocess) {
             // Preprocess the cnmf file
             cnmf_preprocess = cnmf_pre_process(merge_out)
