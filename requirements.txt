@@ -1,18 +1,28 @@
-# Unoffical working list of dependencies during devlopment
+# Unoffical working list of dependencies during development, and they order they were installed in
+
+#-----------------------------------------------
 # Python
 python==3.10
 h5ad (pip)
 cnmf (pip)
 pandas
-
-
-# R
 scanpy
+
+
+#-----------------------------------------------
+# R
 r-seurat==5.0.0
 r-anndata
 r-reticulate
 
 biomaRt (was not in conda, installed manually)
-fgsea
+optparse
+R.utils (allows fread to read gzips directly)
+
+# To install fgsea need to follow this:
+install.packages("remotes")
+remotes::install_github("ctlab/fgsea")
+
+
 # See conda_env.txt for a dump of the conda env, but this misses some R packages that could not be found in conda
 
