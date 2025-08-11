@@ -239,7 +239,7 @@ process cnmf_consensus {
         --show-clustering
         
         # Zip the textfiles
-        find ${id} -maxdepth 1 -type f -name "*.txt" ! -xtype l -exec gzip {} \;
+        find ${id} -maxdepth 1 -type f -name "*.txt" ! -xtype l -exec gzip {} \\;
         """
     
         cmd

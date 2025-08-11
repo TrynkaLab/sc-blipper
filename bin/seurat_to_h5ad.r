@@ -80,12 +80,11 @@ convert_seurat_to_h5ad_counts <- function(input_rds, output_h5ad, mapping_file=N
 # Command line interface
 if (!interactive()) {
     args <- commandArgs(trailingOnly = TRUE)
-    if (length(args) < 2 || length(args) > 3) {
+    if (length(args) < 2 || length(args) > 4) {
         cat("Usage: Rscript seurat_to_h5ad_counts.R <input_seurat_rds> <output_h5ad> [gene_id_mapping.txt [unupdated_file.txt]]\n")
         quit(status = 1)
     }
-    mapping_file <- if (length(args) == 3) args[3] else NULL
-    
+    mapping_file <- if (length(args) == 4) args[3] else NULL
     unupdated_file <- if (length(args) == 4) args[4] else NULL
     convert_seurat_to_h5ad_counts(args[1], args[2], mapping_file, unupdated_file)
 }
