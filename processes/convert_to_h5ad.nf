@@ -37,7 +37,7 @@ process link_h5ad {
     publishDir "$params.rn_publish_dir/h5ad/per_batch", mode: 'symlink'
     
     input:
-        tuple val(id), path(file), val(convert_ids)
+        tuple val(id), path(file, name: "input.h5ad"), val(convert_ids)
         path(mapping_file)
     output:
         tuple val(id), path("${id}.h5ad"), emit: h5ad
@@ -49,7 +49,7 @@ process link_h5ad {
             echo "[INFO] Nothing to do, just renaming the link"
             
             if [ "${file}" != "${id}.h5ad" ]; then
-                mv "${file}" "${id}.h5ad"
+                cp "${file}" "${id}.h5ad"
             else
                 echo "Source and destination are the same. Skipping move."
             fi

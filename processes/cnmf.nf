@@ -79,7 +79,7 @@ process cnmf_factorize {
     //publishDir "$params.rn_publish_dir/cnmf/${id}/factorize", mode: 'symlink'
     
     input:
-        tuple val(id), path(file), val(worker_index)
+        tuple val(id), path(file, name: "tmp/*"), val(worker_index)
     output:
         //tuple val(id), path("${id}/cnmf_tmp/*.df.npz")
         path("${id}/cnmf_tmp/*.k_*.iter_*.df.npz", emit: files)
@@ -87,12 +87,7 @@ process cnmf_factorize {
     script:
         cmd = 
         """
-        # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir
-        
-        # Make a tmpdir to store the symlinks to the output of the prepare process
-        mkdir -p tmp
-        mv ${file} tmp/
-        
+        # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir    
         # Create an output folder in the workdir with the same name
         mkdir -p ${id}/cnmf_tmp
         
@@ -122,8 +117,8 @@ process cnmf_combine {
     //publishDir "$params.rn_publish_dir/cnmf/${id}/combine", mode: 'symlink'
     
     input:
-        tuple val(id), path(file)
-        path(factorize)
+        tuple val(id), path(file, name: "tmp/*")
+        path(factorize, name: "factorized/*")
     output:
         //tuple val(id), path("${id}")
         path("${id}/cnmf_tmp/*.k_*.merged.df.npz", emit: files)
@@ -132,17 +127,13 @@ process cnmf_combine {
         """
         # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir
         
-        # Make a tmpdir to store the symlinks to the output of the prepare process
-        mkdir -p tmp
-        mv ${file} tmp/
-        
         # Create an output folder in the workdir with the same name
         mkdir -p ${id}/cnmf_tmp
         
         # Symlink the files, not the whole folder, this will trick cNMF into thinking it is the same folder
-        ln -s \$(pwd)/tmp/${file}/cnmf_tmp/* ${id}/cnmf_tmp/
-        ln -s \$(pwd)/tmp/${file}/*.overdispersed_genes.txt ${id}/
-        mv ${factorize} ${id}/cnmf_tmp/
+        ln -s \$(pwd)/tmp/${id}/cnmf_tmp/* ${id}/cnmf_tmp/
+        ln -s \$(pwd)/tmp/${id}/*.overdispersed_genes.txt ${id}/
+        ln -s \$(pwd)/factorized/* ${id}/cnmf_tmp/
         
         # Now we can run the process, so the output is written to the ${id} in the workdir, 
         # not the symlinked one
@@ -164,8 +155,8 @@ process cnmf_kselection {
     publishDir "$params.rn_publish_dir/cnmf/consensus", mode: 'symlink'
     
     input:
-        tuple val(id), path(file)
-        path(merged)
+        tuple val(id), path(file, name: "tmp/*")
+        path(merged, name: "merged/*")
     output:
         path("${id}/${id}.k_selection*")
         
@@ -174,17 +165,13 @@ process cnmf_kselection {
         """
         # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir
         
-        # Make a tmpdir to store the symlinks to the output of the prepare process
-        mkdir -p tmp
-        mv ${file} tmp/
-        
         # Create an output folder in the workdir with the same name
         mkdir -p ${id}/cnmf_tmp
         
         # Symlink the files, not the whole folder, this will trick cNMF into thinking it is the same folder
-        ln -s \$(pwd)/tmp/${file}/cnmf_tmp/* ${id}/cnmf_tmp/
-        ln -s \$(pwd)/tmp/${file}/*.overdispersed_genes.txt ${id}/
-        mv ${merged} ${id}/cnmf_tmp/
+        ln -s \$(pwd)/tmp/${id}/cnmf_tmp/* ${id}/cnmf_tmp/
+        ln -s \$(pwd)/tmp/${id}/*.overdispersed_genes.txt ${id}/
+        ln -s \$(pwd)/merged/* ${id}/cnmf_tmp/
         
         # Now we can run the process, so the output is written to the ${id} in the workdir, 
         # not the symlinked one
@@ -212,8 +199,8 @@ process cnmf_consensus {
     }
     
     input:
-        tuple val(id), path(file), val(k)
-        path(merged)
+        tuple val(id), path(file, name: "tmp/*"), val(k)
+        path(merged, name: "merged/*")
     output:
         tuple val(k), path("${id}/${id}.gene_spectra_score*"), emit: spectra_score
         tuple val(k), path("${id}/${id}.gene_spectra_tpm*"), emit: spectra_tpm
@@ -226,18 +213,13 @@ process cnmf_consensus {
         cmd = 
         """
         # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir
-        
-        # Make a tmpdir to store the symlinks to the output of the prepare process
-        mkdir -p tmp
-        mv ${file} tmp/
-        
         # Create an output folder in the workdir with the same name
         mkdir -p ${id}/cnmf_tmp
         
         # Symlink the files, not the whole folder, this will trick cNMF into thinking it is the same folder
-        ln -s \$(pwd)/tmp/${file}/cnmf_tmp/* ${id}/cnmf_tmp/
-        ln -s \$(pwd)/tmp/${file}/*.overdispersed_genes.txt ${id}/
-        mv ${merged} ${id}/cnmf_tmp/
+        ln -s \$(pwd)/tmp/${id}/cnmf_tmp/* ${id}/cnmf_tmp/
+        ln -s \$(pwd)/tmp/${id}/*.overdispersed_genes.txt ${id}/
+        ln -s \$(pwd)/merged/* ${id}/cnmf_tmp/
         
         # Now we can run the process, so the output is written to the ${id} in the workdir, 
         # not the symlinked one

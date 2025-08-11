@@ -20,15 +20,16 @@ option_list <- list(
               type = "numeric", default = 0.05,
               help = "Threshold to binarize the input matrix. Use pvalue/fdr threshold if -m is pvalues, use 1 if input is binary, use 0 if input is cNMF facotors. Interacts with --absolute Default: 0.05"),
   make_option(c("--use_top"),
-              type = "character", default = NULL,
+              type = "character", default = NA,
               help = "Instead of binzarizing, rank each collumn and use the top x genes (absolute if --absolute is specified). Overrides --threshold. Comma seperated list '100,200,500'. Default: NULL"),
   make_option(c("--absolute"),
-              type = "boolean", default = TRUE,
+              type = "logical", default = TRUE,
               help = "When --threshold or --use_top, use the absolute value instead. Default: TRUE"),
   make_option(c("-u", "--universe"),
               type = "character", default = NA,
               help = "Optional gene universe file (one gene per line). Defaults to all genes in the matrix.")
 )
+
 
 # Parse options
 opt_parser <- OptionParser(option_list = option_list)
@@ -37,6 +38,7 @@ opt        <- parse_args(opt_parser)
 if (!is.null(opt$use_top)) {
   opt$use_top <- as.numeric(strsplit(opt$use_top, split=",")[[1]])
 }
+
 
 # Load numeric matrix (genes in rows, columns are samples or contrasts)
 mat           <- as.matrix(fread(opt$matrix, data.table=FALSE))

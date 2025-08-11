@@ -114,15 +114,42 @@ workflow run_cnmf {
         // Optional post-proccessing of cnmf
         
         if (params.cnmf.run_enrichment && params.enrich.gmt_files != null) {
-                gmt_files = Channel.of(params.enrich.gmt_files)
             
-                gsea_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
-                
-                gsea_in.view()
-                //gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
-                //                gsea_in)
-                
+            // Channel with gmt files
+            gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
+            gmt_files.view()
+            // Universe channel
+            if (params.enrich.universe) {
+                universe = file(params.enrich.universe)
+                if (!id_linker.exists()) {
+                    throw new Exception("Supplied id universe file does not exist")
+                }
+                // Custom conversion file
+                universe = Channel.value(file(params.enrich.universe))
+            } else {
+                // In case there is no universe file
+                universe = Channel.value(file("NO_UNIVERSE"))
+            }
     
+            gsea_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
+            
+            // Run GSEA
+             gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
+                            gsea_in,
+                            gmt_files,
+                            universe,
+                            true)
+                            
+            // Run ORA
+            ora_out = ora("cnmf/consensus/${params.rn_runname}",
+                gsea_in,
+                gmt_files,
+                universe,
+                true,
+                false,
+                0,
+                params.enrich.use_top)
+
         }
         
         

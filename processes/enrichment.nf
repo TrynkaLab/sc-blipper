@@ -25,19 +25,20 @@ process gsea {
     cmd =
     """
     run_gsea.r \
+    --output_prefix ${id} \
     --matrix ${file} \
-    --gmt ${gmt_files.join(',')}
+    --gmt ${gmt_files.join(',')} \
     """
     
     if (transpose) {
-        cmd += " --transpose"
+        cmd += " --transpose TRUE"
     }
     
     if (universe.getFileName().toString() != "NO_UNIVERSE") {
         cmd += " --universe ${universe}"
     }
     
-    cmd += "gzip ${id}_fgsea_results.tsv"
+    cmd += "\n\ngzip ${id}_fgsea_results.tsv"
     
     cmd
 }
@@ -69,13 +70,14 @@ process ora {
     cmd =
     """
     run_gsea_ora.r \
+    --output_prefix ${id} \
     --matrix ${file} \
     --gmt ${gmt_files.join(',')} \
-    --threshold ${threshold}
+    --threshold ${threshold} \
     """
     
     if (transpose) {
-        cmd += " --transpose"
+        cmd += " --transpose TRUE"
     }
     
     if (universe.getFileName().toString() != "NO_UNIVERSE") {
@@ -83,14 +85,14 @@ process ora {
     }
     
     if (absolute) {
-        cmd += " --absolute"
+        cmd += " --absolute TRUE"
     }
     
     if (use_top != null) {
         cmd += " --use_top ${use_top.join(',')}"
     }
     
-    cmd += "gzip ${id}_ora_results.tsv"
+    cmd += "\n\ngzip ${id}_ora_results.tsv"
     
     cmd
 }
