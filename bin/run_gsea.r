@@ -60,10 +60,11 @@ prepare_pathways <- function(gmt_file, gene_universe) {
 # Process each GMT file
 gmt_files <- strsplit(opt$gmt, ",")[[1]]
 
+results  <- list()
+
 for (gmt_file in gmt_files) {
   pathways <- prepare_pathways(gmt_file, gene_universe)
   gmt_name <- gsub(".symbols.gmt$|.gmt$|.ensembl.gmt$", "", basename(gmt_file))
-  results  <- list()
   
   for (col_name in colnames(mat)) {
     ranks <- mat[, col_name]
@@ -78,12 +79,13 @@ for (gmt_file in gmt_files) {
     
     fgsea_res$condition  <- col_name
     fgsea_res$condition2 <- "GSEA"
-    results[[col_name]]  <- fgsea_res
+    fgsea_res$database   <- gmt_name
+    results[[paste0(col_name, "_", gmt_name)]]  <- fgsea_res
   }
-  
-  res                 <- as.data.frame(do.call(rbind, results))
-  res[,"leadingEdge"] <- sapply(res[,"leadingEdge"], paste0, collapse=",")
-  out_file            <- paste0(opt$output_prefix, "_", gmt_name, "_fgsea_results.tsv")
-  write.table(res, out_file, sep="\t", quote=F, row.names=F)
 }
+
+res                 <- as.data.frame(do.call(rbind, results))
+res[,"leadingEdge"] <- sapply(res[,"leadingEdge"], paste0, collapse=",")
+out_file            <- paste0(opt$output_prefix, "_fgsea_results.tsv")
+write.table(res, out_file, sep="\t", quote=F, row.names=F)
 

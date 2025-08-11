@@ -4,9 +4,10 @@ include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
 include { merge_h5ad } from '../processes/merging.nf'
 include { fetch_gene_id_reference } from "../processes/utils.nf"
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
+include { gsea; ora } from "../processes/enrichment.nf"
 
 // Main workflow
-workflow run_pipeline {
+workflow run_cnmf {
     
     main:
         // If needed, fetch ensembl file
@@ -18,7 +19,7 @@ workflow run_pipeline {
                 }
                 // Custom conversion file
                 id_linker = Channel.value(file(params.convert.id_linker))
-            } else {
+            } else {                
                 if (params.convert.ensembl_to_gene) {
                     // ENSEMBL > gene name conversion
                     id_linker = fetch_gene_id_reference(params.convert.ensembl_version).ensembl_to_name
@@ -40,7 +41,7 @@ workflow run_pipeline {
             .map { row -> tuple(
             row.id,
             file(row.file),
-            row.convert_ids)}
+            row.convert_ids.equalsIgnoreCase("true"))}
         
         // Auto detect if it is a h5ad already or a seurat file
         manifest_split = manifest.branch{ it ->
@@ -96,17 +97,38 @@ workflow run_pipeline {
         cnmf_factorize_out = cnmf_factorize_out.collect()
         
         // Combine the output   
-        cmf_out = cnmf_combine(cnmf_prepared, cnmf_factorize_out)     
+        cnmf_combine_out = cnmf_combine(cnmf_prepared, cnmf_factorize_out)     
  
         // Make the k selection plot
-        cnmf_kselection(cnmf_prepared, cmf_out)
+        cnmf_kselection(cnmf_prepared, cnmf_combine_out)
         
         // Make the consensus factorizations
         cnmf_consensus_in = cnmf_prepared
          .map { v -> (params.cnmf.k).collect{ i -> tuple(*v, i) } }
          .flatMap()
-        cnmf_consensus(cnmf_consensus_in, cmf_out)
+        
+        cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out)
+        // This is the end of the cnmf processing
 
         //--------------------------------------------------------
+        // Optional post-proccessing of cnmf
+        
+        if (params.cnmf.run_enrichment && params.enrich.gmt_files != null) {
+                gmt_files = Channel.of(params.enrich.gmt_files)
+            
+                gsea_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
+                
+                gsea_in.view()
+                //gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
+                //                gsea_in)
+                
+    
+        }
+        
+        
+        if (params.cnmf.run_decoupler) {
+            
+            
+        }
 
 }

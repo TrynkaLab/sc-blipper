@@ -15,7 +15,7 @@ process seurat_to_h5ad {
         path(mapping_file)
     output:
         tuple val(id), path("${id}.h5ad"), emit: h5ad
-        path("${id}_unmapped_genes.txt")
+        path("${id}_unmapped_genes.txt", optional: true)
     script:
     
         if (mapping_file.getFileName().toString() == "NO_MAPPING" || !convert_ids) {
@@ -41,8 +41,8 @@ process link_h5ad {
         path(mapping_file)
     output:
         tuple val(id), path("${id}.h5ad"), emit: h5ad
-        path("${id}_unmapped_genes.txt")
-    script:
+        path("${id}_unmapped_genes.txt", optional: true)
+    script: 
         if (mapping_file.getFileName().toString() == "NO_MAPPING" || !convert_ids) {
             cmd  =
             """

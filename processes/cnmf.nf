@@ -203,14 +203,25 @@ process cnmf_consensus {
     container params.cnmf.container
     conda params.cnmf.conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
-    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_${k}/", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_${k}", mode: 'symlink', saveAs: { filepath ->
+        // filepath is a Path object, convert to string
+        def pathStr = filepath.toString()
+        // Remove the first folder (id/)
+        def newPathStr = pathStr.replaceFirst("^${id}/", "")
+        return newPathStr
+    }
     
     input:
         tuple val(id), path(file), val(k)
         path(merged)
     output:
-        path("${id}/${id}*")
-        
+        tuple val(k), path("${id}/${id}.gene_spectra_score*"), emit: spectra_score
+        tuple val(k), path("${id}/${id}.gene_spectra_tpm*"), emit: spectra_tpm
+        tuple val(k), path("${id}/${id}.spectra.k_*"), emit: spectra_k
+        tuple val(k), path("${id}/${id}.usages.k_*"), emit: usages_k
+        tuple val(k), path("${id}/${id}.starcat_spectra.k_*"), emit: starcat_spectra_k
+        tuple val(k), path("${id}/${id}.*.png"), emit: plots
+
     script:
         cmd = 
         """

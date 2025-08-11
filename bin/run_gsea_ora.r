@@ -67,10 +67,11 @@ prepare_pathways <- function(gmt_file, gene_universe) {
 # Process each GMT file
 gmt_files <- strsplit(opt$gmt, ",")[[1]]
 
+results  <- list()
+
 for (gmt_file in gmt_files) {
   pathways <- prepare_pathways(gmt_file, gene_universe)
   gmt_name <- gsub(".symbols.gmt$|.gmt$|.ensembl.gmt$", "", basename(gmt_file))
-  results  <- list()
   
   for (col_name in colnames(mat)) {
     cur.mat <- mat[, col_name]
@@ -84,6 +85,12 @@ for (gmt_file in gmt_files) {
       rank <- sort(cur.mat, decreasing=T)
       
       for (ngene in opt$use_top) {
+        
+        if (ngene >= length(rank)) {
+            warning("More genes requested then are in the genelist. Skipping this iteration")
+            next()
+        }
+        
         fgsea_res <- fora(pathways = pathways,
                           genes = names(rank)[1:ngene],
                           universe=gene_universe,
@@ -91,7 +98,8 @@ for (gmt_file in gmt_files) {
                           maxSize = 500) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- paste0("top",ngene)
-        results[[paste0(col_name, "_",paste0("top",ngene))]]  <- fgsea_res
+        fgsea_res$database   <- gmt_name
+        results[[paste0(col_name, "_", gmt_name, "_",paste0("top",ngene))]]  <- fgsea_res
       }
       
     } else {
@@ -106,7 +114,8 @@ for (gmt_file in gmt_files) {
                           maxSize = 500) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- "ALL"
-        results[[paste0(col_name, "_ALL")]]  <- fgsea_res
+        fgsea_res$database   <- gmt_name
+        results[[paste0(col_name, "_", gmt_name, "_ALL")]]  <- fgsea_res
       }
       
       # UP genes
@@ -119,7 +128,8 @@ for (gmt_file in gmt_files) {
                           maxSize = 500) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- "UP"
-        results[[paste0(col_name, "_UP")]]  <- fgsea_res
+        fgsea_res$database   <- gmt_name
+        results[[paste0(col_name, "_", gmt_name, "_UP")]]  <- fgsea_res
       }
       
       # DOWN genes
@@ -133,16 +143,16 @@ for (gmt_file in gmt_files) {
                           maxSize = 500) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- "DOWN"
-        results[[paste0(col_name, "_DOWN")]]  <- fgsea_res
+        fgsea_res$database   <- gmt_name
+        results[[paste0(col_name, "_", gmt_name, "_DOWN")]]  <- fgsea_res
       }
     }
   }
   
-  res                  <- as.data.frame(do.call(rbind, results))
-  res[,"overlapGenes"] <- sapply(res[,"overlapGenes"], paste0, collapse=",")
-  out_file             <- paste0(opt$output_prefix, "_", gmt_name, "_ora_results.tsv")
-  write.table(res, out_file, sep="\t", quote=F, row.names=F)
 }
 
-
+res                  <- as.data.frame(do.call(rbind, results))
+res[,"overlapGenes"] <- sapply(res[,"overlapGenes"], paste0, collapse=",")
+out_file             <- paste0(opt$output_prefix, "_ora_results.tsv")
+write.table(res, out_file, sep="\t", quote=F, row.names=F)
 

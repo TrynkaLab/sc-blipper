@@ -14,12 +14,12 @@ process merge_h5ad {
         path(files, arity: '1..*')
     output:
         tuple val(id), path("${id}_merged.h5ad"), emit: merged
-        path("non_overlapping_genes.txt", optional: true, emit: non_overlaps)
+        path("non_overlapping_genes.tsv", optional: true, emit: non_overlaps)
     script:
 
     cmd = "merge_h5ad.py ${id}_merged.h5ad ${files.join(' ')}"
     
-    if (params.merge.overlap) {
+    if (params.merge.overlap_genes) {
         cmd += " --overlap"
     }
     

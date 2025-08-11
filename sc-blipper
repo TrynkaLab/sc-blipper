@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+#!/bin/bash
+ 
+#-----------------------------------------------------------------------
+# Section A
+# Setup
+set -e
+
+timestamp_folder_name() {
+  date '+%Y%m%d_%H%M'
+}
+ 
+module load HGI/common/nextflow/25.04.6
+ 
+export HTTP_PROXY='http://wwwcache.sanger.ac.uk:3128'
+export HTTPS_PROXY='http://wwwcache.sanger.ac.uk:3128'
+export NXF_OPTS="-Xms14G -Xmx14G -Dnxf.pool.maxThreads=2000"
+ 
+# Set this to true to enable a more fancy logging.
+# This fancy logging is a bit funky and designed for interactive sessions!
+# Alternatively: tail -f <logfile>  or watch -n 1 tail -10 <logfile> 
+# if not suing an interactive session
+export NXF_ANSI_LOG=false
+ 
+# General Nextflow variables #
+ 
+# Nextflow version, change depending on installation you use
+export NXF_VER=25.04.6
+ 
+# Singularity cache folder to use
+# Currently doesn't use signularity, but will do in the future
+export NXF_SINGULARITY_CACHEDIR=/lustre/scratch125/humgen/teams_v2/trynka/resources/singularity_cache
+ 
+# Path to nextflow file
+NF_FILE=/software/teamtrynka/installs/sc-blipper/main.nf
+ 

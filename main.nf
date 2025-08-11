@@ -5,4 +5,4 @@
 //validateParameters()
 
 // Run pipeline
-include { run_pipeline } from './workflows/run_pipeline.nf'
+include { run_cnmf } from './workflows/run_cnmf.nf'
