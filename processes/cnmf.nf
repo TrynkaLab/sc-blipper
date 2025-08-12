@@ -61,7 +61,7 @@ process cnmf_prepare {
         --output-dir ./ \
         --name $id \
         -c $file \
-        -k ${params.cnmf.k.join(' ')} \
+        -k ${params.cnmf.k.split(",").join(' ')} \
         --n-iter ${params.cnmf.n_iter} \
         --seed ${params.cnmf.seed} \
         --numgenes ${params.cnmf.n_variable}

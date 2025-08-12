@@ -4,7 +4,7 @@ include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
 include { merge_h5ad } from '../processes/merging.nf'
 include { fetch_gene_id_reference } from "../processes/utils.nf"
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
-include { gsea; ora } from "../processes/enrichment.nf"
+include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 
 // Main workflow
 workflow run_cnmf {
@@ -104,7 +104,7 @@ workflow run_cnmf {
         
         // Make the consensus factorizations
         cnmf_consensus_in = cnmf_prepared
-         .map { v -> (params.cnmf.k).collect{ i -> tuple(*v, i) } }
+         .map { v -> (params.cnmf.k.split(",")).collect{ i -> tuple(*v, i) } }
          .flatMap()
         
         cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out)
@@ -131,7 +131,10 @@ workflow run_cnmf {
                 universe = Channel.value(file("NO_UNIVERSE"))
             }
     
-            gsea_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
+            gsea_in = cnmf_out.spectra_k.filter { tuple ->
+                        def (k, path) = tuple
+                        !(k in params.cnmf.k_ignore.split(','))
+                    }.map{i -> tuple("k_"+i[0], i[1])}
             
             // Run GSEA
              gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
@@ -152,10 +155,13 @@ workflow run_cnmf {
 
         }
         
-        
         if (params.cnmf.run_decoupler) {
+            decoupler_in = cnmf_out.spectra_k.filter { tuple ->
+                def (k, path) = tuple
+                !(k in params.cnmf.k_ignore.split(','))
+            }.map{i -> tuple("k_"+i[0], i[1])}
             
-            
+            decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in)
         }
 
 }

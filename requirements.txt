@@ -8,21 +8,26 @@ cnmf (pip)
 pandas
 scanpy
 
-
 #-----------------------------------------------
 # R
 r-seurat==5.0.0
 r-anndata
 r-reticulate
+r-optparse
+r-remotes
+r-ggplotify
+r-pheatmap
 
 biomaRt (was not in conda, installed manually)
-optparse
-R.utils (allows fread to read gzips directly)
+R.utils (was not in conda, installed manually)
 
 # To install fgsea need to follow this:
-install.packages("remotes")
 remotes::install_github("ctlab/fgsea")
 
+remotes::install_github('saezlab/decoupleR')
+remotes::install_github("saezlab/progeny")
+
+#R.utils (allows fread to read gzips directly)
 
 # See conda_env.txt for a dump of the conda env, but this misses some R packages that could not be found in conda
 

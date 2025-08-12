@@ -7,7 +7,8 @@ colnum="$2"
 outfile="$3"
 setname="${4:-GeneSet}"   # default set name if not provided
 
-# --- sanity checks ---
+# ------------------------------------------------------------
+# Sanity checks
 if [[ -z "$infile" || -z "$colnum" || -z "$outfile" ]]; then
     echo "Usage: $0 input.txt column_number output.gmt [gene_set_name]"
     exit 1
@@ -23,7 +24,8 @@ if ! [[ "$colnum" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-# --- extract specified column and convert to GMT format ---
+# ------------------------------------------------------------
+# Extract specified column and convert to GMT format
 {
     echo -n -e "${setname}\tNA\t"
     awk -v col="$colnum" -F'\t' '{print $col}' "$infile" | paste -sd '\t' -
