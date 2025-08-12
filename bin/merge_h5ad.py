@@ -12,7 +12,7 @@ def basename_no_ext(filepath):
             break
     return base
 
-def merge_h5ad_files(output_file, input_files, overlap_only=False, nonoverlap_file=None):
+def merge_h5ad_files(output_file, input_files, overlap_only=False, nonoverlap_file=None, check=True):
     # Read all the input h5ad files
     adatas = [ad.read_h5ad(f) for f in input_files]
 
@@ -23,15 +23,26 @@ def merge_h5ad_files(output_file, input_files, overlap_only=False, nonoverlap_fi
         print("Finding overlapping genes across all datasets...")
         # Get the intersection
         common_genes = set(adatas[0].var_names)
+        all_genes = set(adatas[0].var_names)
         for a in adatas[1:]:
             common_genes &= set(a.var_names)
+            all_genes.update(a.var_names)
 
         if not common_genes:
             print("No overlapping genes found! Exiting.")
             sys.exit(1)
-
+        
+        
+        perc_ol = (len(common_genes) / len(all_genes))*100
+        
+        if check:
+            if perc_ol < 25:
+                print(f"Fewer then 25% of input genes overlapped {len(common_genes)}/{len(all_genes)} ({perc_ol:.2f}%), exiting. Add --no_check to ignore this")
+                sys.exit(1)
+        
         common_genes = sorted(list(common_genes))
-        print(f"Found {len(common_genes)} overlapping genes.")
+        print(f"Found {len(common_genes)} ({perc_ol:.2f}%) overlapping genes.")
+        
 
         # Capture non-overlapping genes by dataset
         for fname, a in zip(input_files, adatas):
@@ -76,8 +87,12 @@ if __name__ == "__main__":
                         help="Only keep genes present in ALL input files before merging. Otherwise they are put as NA in the count matrix")
     parser.add_argument("--nonoverlap_file", default="non_overlapping_genes.tsv",
                         help="Path to save non-overlapping genes table (TSV)")
+    parser.add_argument("--no_check", default=False,
+                        help="Skip the overlapping gene check")
     args = parser.parse_args()
 
-    merge_h5ad_files(args.output, args.inputs,
+    merge_h5ad_files(args.output,
+                     args.inputs,
                      overlap_only=args.overlap,
-                     nonoverlap_file=args.nonoverlap_file)
+                     nonoverlap_file=args.nonoverlap_file,
+                     check=not args.no_check)

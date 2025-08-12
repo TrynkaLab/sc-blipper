@@ -23,4 +23,19 @@ process fetch_gene_id_reference {
     """  
 }
 
+process invert_id_link {
+    label "tiny"
+    publishDir "$params.rn_publish_dir/reference/id_link", mode: 'copy'
+
+    input:
+        path(id_linker)
+    output:
+        path("*_inverted.tsv", emit: inverted)
+    script:
+    """
+    outfile="\$(basename ${id_linker} | sed 's/.tsv//g')"
+    awk '{print \$2"\t"\$1"}' ${id_linker} > \${outfile}_inverted.tsv
+    """
+}
+
 

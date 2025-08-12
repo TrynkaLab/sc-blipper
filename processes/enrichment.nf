@@ -1,7 +1,5 @@
 #!/usr/bin/env nextlflow
 
-
-
 process gsea {
     label params.enrich.label
     scratch params.rn_scratch
@@ -116,6 +114,7 @@ process decoupler {
         val(prefix)
         tuple val(id), path(file)
         val(transpose)
+        path(mapping_file)
     output:
         path("${id}_*.tsv.gz", emit: decoupler)
         path("*.pdf", emit: plots)
@@ -132,9 +131,15 @@ process decoupler {
         cmd += " --transpose TRUE"
     }
     
+    if (mapping_file.getFileName().toString() != "NO_MAPPING") {
+        cmd += " --gene_to_ensembl ${mapping_file}"
+    }
+    
+    if (params.enrich.omnipath_cache_dir != null) {
+        cmd += " --cache_dir ${params.enrich.omnipath_cache_dir}"
+    }    
+    
     cmd += "\n\ngzip -f ${id}_*.tsv"
     
     cmd
-
-
 }

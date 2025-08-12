@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
+# Assumes this is being called from a scripts folder, will put the nextflow workdir 
+# one level up
 
-#!/bin/bash
- 
 #-----------------------------------------------------------------------
-# Section A
 # Setup
 set -e
 
@@ -35,3 +34,77 @@ export NXF_SINGULARITY_CACHEDIR=/lustre/scratch125/humgen/teams_v2/trynka/resour
 # Path to nextflow file
 NF_FILE=/software/teamtrynka/installs/sc-blipper/main.nf
  
+prefix="$(timestamp_folder_name)"
+mkdir -p logs/${prefix}
+#-----------------------------------------------------------------
+# Print usage
+usage() {
+    echo "Usage: $0 {cnmf|enrich|convert} -c <file.nf>"
+    exit 1
+}
+
+#-----------------------------------------------------------------
+if [ -z "$1" ]; then
+    echo "Error: No workflow provided."
+    usage
+fi
+
+WORKFLOW="$1"
+if [[ ! " ${ALLOWED[*]} " =~ " ${WORKFLOW} " ]]; then
+    echo "Error: Invalid workflow '$WORKFLOW'"
+    echo "Allowed commands are: ${ALLOWED[*]}"
+    exit 1
+fi
+
+# Remove first argument so we can parse the rest
+shift
+
+while getopts "c:h:" opt; do
+    case $opt in
+        c)
+            CONFIG_FILE="$OPTARG"
+            ;;
+        h)
+            usage
+            CMD="nextflow run ${NF_FILE} --help"
+            eval $CMD
+            exit 0
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+
+# --- Check that -c was provided ---
+if [ -z "$CONFIG_FILE" ]; then
+    echo "Error: Missing -c <config.nf> argument"
+    usage
+fi
+
+# --- Check .nf extension ---
+if [[ ! "$CONFIG_FILE" =~ \.nf$ ]]; then
+    echo "Error: File '$CONFIG_FILE' must have .nf extension"
+    exit 1
+fi
+
+echo "✅ Workflow: $WORKFLOW"
+echo "✅ Config file: $CONFIG_FILE"
+
+# Build the nextflow command, in this case, parameters are specified through the config
+CMD="nextflow \
+-log logs/${prefix}/${WORKFLOW}.nextflow.log \
+run ${NF_FILE} \
+-profile lsf \
+-w ../workdir \
+-resume \
+-entry ${WORKFLOW} \
+-with-report logs/${prefix}/${WORKFLOW}.nextflow.html \
+-with-trace logs/${prefix}/${WORKFLOW}.nextflow.trace \
+-c ${CONFIG}"
+
+echo "--------------------------------------------------------------------"
+echo $CMD
+echo "--------------------------------------------------------------------"
+eval $CMD
+

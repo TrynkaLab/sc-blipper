@@ -2,7 +2,7 @@
 
 include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
 include { merge_h5ad } from '../processes/merging.nf'
-include { fetch_gene_id_reference } from "../processes/utils.nf"
+include { fetch_gene_id_reference; invert_id_link } from "../processes/utils.nf"
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 
@@ -19,18 +19,25 @@ workflow run_cnmf {
                 }
                 // Custom conversion file
                 id_linker = Channel.value(file(params.convert.id_linker))
-            } else {                
-                if (params.convert.ensembl_to_gene) {
+                id_linker_inv = invert_id_link(id_linker)
+            } else {        
+                ensembl_reference = fetch_gene_id_reference(params.convert.ensembl_version)
+                        
+                if (params.convert.invert_linker) {
                     // ENSEMBL > gene name conversion
-                    id_linker = fetch_gene_id_reference(params.convert.ensembl_version).ensembl_to_name
+                    id_linker = ensembl_reference.ensembl_to_name
+                    id_linker_inv = ensembl_reference.name_to_ensembl
                 } else {
                     // gene name > ENSEMBL conversion
-                    id_linker = fetch_gene_id_reference(params.convert.ensembl_version).name_to_ensembl
+                    id_linker = ensembl_reference.name_to_ensembl
+                    id_linker_inv = ensembl_reference.ensembl_to_name
                 }
             }
         } else {
             // In case there is no mapping file
             id_linker = Channel.value(file("NO_MAPPING"))
+            id_linker_inv = Channel.value(file("NO_MAPPING"))
+
         }
     
         //------------------------------------------------------------
@@ -74,7 +81,7 @@ workflow run_cnmf {
             cnmf_in = cnmf_preprocess.preproccessed
         } else {
             // Otherwise use the merged file, in case there is one batch,
-            // just uses the otehr file
+            // just uses the other file
             cnmf_in = merge_out
         }
             
@@ -140,7 +147,7 @@ workflow run_cnmf {
             }
 
             // Run GSEA
-             gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
+            gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
                             gsea_in,
                             gmt_files,
                             universe,
@@ -169,10 +176,16 @@ workflow run_cnmf {
                 decoupler_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
             }
             
-            decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true)
+            if (params.convert.invert_linker) {
+                // This assumes you have converted to gene symbols
+                decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
+            } else {
+                // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
+                decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, id_linker_inv) 
+            }
         }
         
         
-        // Collect enrichment results
+        // Collect enrichment results for a summary
 
 }

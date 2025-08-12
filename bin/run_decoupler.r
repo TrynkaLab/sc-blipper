@@ -6,6 +6,9 @@ library(pheatmap)
 library(ggplotify)
 library(ggplot2)
 library(optparse)
+library(tibble)
+library(tidyr)
+library(OmnipathR)
 
 #------------------------------------------------------------------------------
 #' Simple heatmap with auto labels
@@ -110,18 +113,39 @@ option_list <- list(
               type = "character", help = "Prefix for output files."),
   make_option(c("-t", "--transpose"),
               type = "logical", default = FALSE,
-              help = "Whether to transpose the matrix before processing. Default: FALSE.")
+              help = "Whether to transpose the matrix before processing. Default: FALSE."),
+  make_option(c("--cache_dir"),
+              type = "character", default = NULL,
+              help = "Cache dir for OmniPathR. Default: NULL (home dir)"),
+  make_option(c("--gene_to_ensembl"),
+            type = "character", default = NULL,
+            help = "TSV file with gene name to ensembl (old, new) to convert ominpath with Default: NULL")
 )
-
 
 # Parse options
 opt_parser <- OptionParser(option_list = option_list)
 opt        <- parse_args(opt_parser)
 
+# Set the cache folder for OmniPathR
+if (!is.null(opt$cache_dir)) {
+  OmnipathR::omnipath_set_cachedir(opt$cache_dir)
+}
+
 # Check required arguments
 if (any(is.null(opt$matrix), is.null(opt$output_prefix))) {
   print_help(opt_parser)
   stop("Error: --matrix, and --output_prefix are required.", call. = FALSE)
+}
+
+# If the input has ensembl ids use this file to convert omnipath
+if (!is.null(opt$gene_to_ensembl)) {
+  mapping               <- read.table(mapping_file, header=FALSE, sep="\t", stringsAsFactors=FALSE)
+  colnames(mapping)     <- c("old", "new")
+  gene_replacement      <- setNames(mapping$new, mapping$old)
+  gene_replacement_rev  <- setNames(mapping$old, mapping$new)
+} else {
+  gene_replacement  <- NULL
+  gene_replacement_rev <- NULL
 }
 
 #-------------------------------------------------------------------------------
@@ -139,9 +163,10 @@ if (opt$transpose) {
 # Get progeny information
 net <- get_progeny(organism = 'human', top = 500)
 
-# Select only overlapping genes and convert to matrix
-unique.genes <- unlist(unique(net[,"target"]))
-ol           <- intersect(unique.genes, rownames(mat))
+if (!is.null(gene_replacement)) {
+  net[,"target"] <- gene_replacement[net[,"target"]]
+}
+
 mat          <- na.omit(mat)
 
 # Infer activities
@@ -168,32 +193,34 @@ activity.matrix.p <- activities %>%
               values_from = 'p_value') %>%
   column_to_rownames('source')
 
-# Select the significant pathways
+# Select the significant pathways (for progeny there are only a few, so just plot em all)
 #sig.tfs <- rowSums(activity.matrix.p < 0.05/nrow(activities)) >=1 
 #df.plot <- activity.matrix[sig.tfs, ]
 df.plot <- activity.matrix
 
-# Scale per pathway
-#df.plot <- t(scale(t(df.plot)))
+# Plotting ensembl ids is not very usefull, so in case they are , convert back to gene names
+if (!is.null(gene_replacement_rev)) {
+  rownames(df.plot) <- gene_replacement_rev[rownames(df.plot)]
+}
 
-pdf(width=10, height=5, file=paste0(opt$output_prefix, "_pathways.pdf"))
+pdf(width=2+(nrow(df.plot)*0.2), height=2+(ncol(df.plot)*0.5), file=paste0(opt$output_prefix, "_pathways.pdf"))
 plot_simple_hm(df.plot, cellheight = 15, cellwidth = 15)
 dev.off()
 
 
-pdf(width=10, height=5, file=paste0(opt$output_prefix, "_pathways_scaled.pdf"))
+pdf(width=2+(nrow(df.plot)*0.2), height=2+(ncol(df.plot)*0.5), file=paste0(opt$output_prefix, "_pathways_scaled.pdf"))
 plot_simple_hm(t(scale(t(df.plot))), cellheight = 15, cellwidth = 15)
 dev.off()
-
 
 #-------------------------------------------------------------------------------
 # Get CollectTRI information
 net <- get_collectri(organism='human', split_complexes=FALSE)
 
-# Select only overlapping genes and convert to matrix
-unique.genes <- unlist(unique(net[,"target"]))
+if (!is.null(gene_replacement)) {
+  net[,"target"] <- gene_replacement[net[,"target"]]
+}
+
 mat          <- na.omit(mat)
-ol           <- intersect(unique.genes, rownames(mat))
 
 # Infer activities
 activities <- run_ulm(mat=mat,
@@ -222,10 +249,15 @@ activity.matrix.p <- activities %>%
 sig.tfs <- rowSums(activity.matrix.p < 0.05/nrow(activities)) >=1 
 df.plot <- activity.matrix[sig.tfs, ]
 
-pdf(width=10, height=20, file=paste0(opt$output_prefix, "_signif_tfs.pdf"))
-plot_simple_hm(df.plot, cellheight = 2, cellwidth = 20)
+# Plotting ensembl ids is not very usefull, so in case they are , convert back to gene names
+if (!is.null(gene_replacement_rev)) {
+  rownames(df.plot) <- gene_replacement_rev[rownames(df.plot)]
+}
+
+pdf(width=2+(nrow(df.plot)*0.2), height=2+(ncol(df.plot)*1), file=paste0(opt$output_prefix, "_signif_tfs.pdf"))
+plot_simple_hm(df.plot, cellheight = 8, cellwidth = 20)
 dev.off()
 
-pdf(width=10, height=20, file=paste0(opt$output_prefix, "_signif_tfs_scaled.pdf"))
-plot_simple_hm(t(scale(t(df.plot))), cellheight = 2, cellwidth = 20)
+pdf(width=2+(nrow(df.plot)*0.2), height=2+(ncol(df.plot)*1), file=paste0(opt$output_prefix, "_signif_tfs_scaled.pdf"))
+plot_simple_hm(t(scale(t(df.plot))), cellheight = 8, cellwidth = 20)
 dev.off()
