@@ -115,6 +115,7 @@ process decoupler {
         // A couple of parameters are set as input values
         val(prefix)
         tuple val(id), path(file)
+        val(transpose)
     output:
         path("${id}_*.tsv.gz", emit: decoupler)
         path("*.pdf", emit: plots)

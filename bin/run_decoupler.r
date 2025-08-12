@@ -1,10 +1,11 @@
-setwd("/lustre/scratch124/humgen/projects_v2/healthy_imm_expr/CellDivider/analysis/decoupler/scripts")
+#!/usr/bin/env Rscript
 
 library(data.table)
 library(decoupleR)
 library(pheatmap)
 library(ggplotify)
 library(ggplot2)
+library(optparse)
 
 #------------------------------------------------------------------------------
 #' Simple heatmap with auto labels

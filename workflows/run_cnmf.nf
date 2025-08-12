@@ -112,7 +112,6 @@ workflow run_cnmf {
 
         //--------------------------------------------------------
         // Optional post-proccessing of cnmf
-        
         if (params.cnmf.run_enrichment && params.enrich.gmt_files != null) {
             
             // Channel with gmt files
@@ -131,11 +130,15 @@ workflow run_cnmf {
                 universe = Channel.value(file("NO_UNIVERSE"))
             }
     
-            gsea_in = cnmf_out.spectra_k.filter { tuple ->
-                        def (k, path) = tuple
-                        !(k in params.cnmf.k_ignore.split(','))
-                    }.map{i -> tuple("k_"+i[0], i[1])}
-            
+            if (params.cnmf.k_ignore != null) {
+                gsea_in = cnmf_out.spectra_k.filter { tuple ->
+                    def (k, path) = tuple
+                    !(k in params.cnmf.k_ignore.split(','))
+                }.map{i -> tuple("k_"+i[0], i[1])}
+            } else {
+                gsea_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
+            }
+
             // Run GSEA
              gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
                             gsea_in,
@@ -152,16 +155,24 @@ workflow run_cnmf {
                 false,
                 0,
                 params.enrich.use_top)
-
         }
         
+        // Run decoupler (Progeny + collecTRI)
         if (params.cnmf.run_decoupler) {
-            decoupler_in = cnmf_out.spectra_k.filter { tuple ->
-                def (k, path) = tuple
-                !(k in params.cnmf.k_ignore.split(','))
-            }.map{i -> tuple("k_"+i[0], i[1])}
             
-            decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in)
+            if (params.cnmf.k_ignore != null) {
+                decoupler_in = cnmf_out.spectra_k.filter { tuple ->
+                    def (k, path) = tuple
+                    !(k in params.cnmf.k_ignore.split(','))
+                }.map{i -> tuple("k_"+i[0], i[1])}
+            } else {
+                decoupler_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
+            }
+            
+            decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true)
         }
+        
+        
+        // Collect enrichment results
 
 }
