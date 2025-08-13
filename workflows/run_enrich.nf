@@ -2,7 +2,7 @@
 
 // Processes
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
-include { magma_assoc } from "../processes/magma.nf"
+include { magma_assoc; magma_concat } from "../processes/magma.nf"
 
 // Subworkflows
 include { fetch_id_linker } from "../subworkflows/id_linking.nf"

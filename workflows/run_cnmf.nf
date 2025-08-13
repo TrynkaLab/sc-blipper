@@ -3,7 +3,7 @@
 // Processes
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
-include { magma_assoc } from "../processes/magma.nf"
+include { magma_assoc; magma_concat } from "../processes/magma.nf"
 
 // Subworkflows
 include { fetch_id_linker } from "../subworkflows/id_linking.nf"
@@ -25,7 +25,7 @@ workflow cnmf {
         ensembl_reference = fetch_id_linker.out.ensembl_reference
 
         //------------------------------------------------------------        
-        convert_and_merge(params.rn_manifest, params.rn_runname)
+        convert_and_merge(params.rn_manifest, params.rn_runname, id_linker)
         
         merge_out = convert_and_merge.out.merge_out
         

@@ -7,6 +7,7 @@ workflow convert_and_merge {
     take:
         rn_manifest
         rn_runname
+        id_linker
     main:
 
         //------------------------------------------------------------

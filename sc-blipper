@@ -39,10 +39,16 @@ mkdir -p logs/${prefix}
 #-----------------------------------------------------------------
 # Print usage
 usage() {
-    echo "Usage: $0 <cnmf|enrich|convert> -c <file.nf> [-l]"
-    echo "<cnmf|enrich|convert> The workflow to run"
-    echo "-c <path/to/config.nf> Nextflow config file for the run"
-    echo "-l Run nextflow locally instead of submitting to oversubscribed"
+    echo -e "Usage: $0 <cnmf|enrich|convert> [-c <file.nf>] [-l] -- [nextflow pipeline args]"
+    echo -e "<cnmf|enrich|convert>\t\tThe workflow to run"
+    echo -e "-c\t\t\t\t<path/to/config.nf> Nextflow config file for the run"
+    echo -e "-l\t\t\t\tRun nextflow locally instead of submitting to oversubscribed"
+    echo -e "-- The rest is passed to nextlfow and overrides -c"
+    echo -e ""
+    echo -e ""
+    echo -e "Examples:"
+    echo -e "sc-blipper enrich -c conf.nf -l"
+    echo -e "sc-blipper enrich -c conf.nf -- --rn_runname hello_world --enrich.input_matrix matrix.tsv"
     exit 1
 }
 
@@ -65,7 +71,7 @@ fi
 shift
 
 SUBMIT=1
-while getopts "c:h:l" opt; do
+while getopts ":c:hl" opt; do
     case $opt in
         c)
             CONFIG_FILE="$OPTARG"
@@ -79,27 +85,34 @@ while getopts "c:h:l" opt; do
             eval $CMD
             exit 0
             ;;
-        *)
-            usage
+        \?)
+            # Do nothing for invalid options: silently ignore them
+            ;;
+        :)
+            # Option requires an argument, handle error if needed or ignore
             ;;
     esac
 done
 
-# --- Check that -c was provided ---
+# Drop all remaining arguments
+shift $((OPTIND - 1))
+
+# Check that -c was provided
 if [ -z "$CONFIG_FILE" ]; then
-    echo "❌ Error: Missing -c <config.nf> argument"
-    usage
+    echo "❌ WARN: Missing -c <config.nf> argument"
+    #usage
 fi
 
-# --- Check .nf extension ---
+# Check .nf extension
 if [[ ! "$CONFIG_FILE" =~ \.nf$ ]]; then
-    echo "❌ Error: File '$CONFIG_FILE' must have .nf extension"
-    exit 1
+    echo "❌ WARN: -c File '$CONFIG_FILE' must have .nf extension"
+    #exit 1
 fi
 
 echo "⬆️  Workflow: $WORKFLOW"
 echo "📄 Config file: $CONFIG_FILE"
 echo "📒 Logs: logs/${prefix}"
+echo "🟠 Arguments: $@"
 
 # Build the nextflow command, in this case, parameters are specified through the config
 CMD="nextflow \
@@ -110,8 +123,15 @@ run ${NF_FILE} \
 -resume \
 -entry ${WORKFLOW} \
 -with-report logs/${prefix}/${WORKFLOW}.nextflow.html \
--with-trace logs/${prefix}/${WORKFLOW}.nextflow.trace \
--c ${CONFIG_FILE}"
+-with-trace logs/${prefix}/${WORKFLOW}.nextflow.trace"
+
+# Add the config if exists
+if [ -e "$CONFIG_FILE" ]; then
+    CMD="$CMD -c ${CONFIG_FILE}"
+fi
+
+# Add the remaining arguments
+CMD="$CMD $@"
 
 echo "--------------------------------------------------------------------"
 echo $CMD

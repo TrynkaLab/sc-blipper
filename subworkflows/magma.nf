@@ -79,7 +79,7 @@ workflow magma_base {
         }
     emit:
         raw=magma_merge_out.raw
-        log=magma_merge_out.log
+        logs=magma_merge_out.logs
         out=magma_merge_out.out
 }
     
