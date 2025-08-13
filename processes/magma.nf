@@ -206,8 +206,8 @@ process magma_assoc {
         val(transpose)
         
     output:
-        path("${trait}_${database}.gsa.out", emit: out)
-        path("${trait}_${database}.log", emit: logs)
+        path("${trait}__${database}.gsa.out", emit: out)
+        path("${trait}__${database}.log", emit: logs)
     script:
     
     cmd =
@@ -247,7 +247,7 @@ process magma_assoc {
     """
     magma --gene-results ${magma_raw} \
     --gene-covar \$input \
-    --out ${trait}_${database} \
+    --out ${trait}__${database} \
     """
     
     cmd
@@ -272,5 +272,22 @@ process magma_concat {
     script:
     """
     concat_magma_output.py ${name}_merged_magma_results.tsv ${files}
+    """
+}
+
+
+process magma_write_manifest {
+    label "tiny"
+    
+    publishDir "$params.rn_publish_dir/magma/", mode: 'symlink'
+    
+    input:
+        val(rows)
+    output:
+        file("*_magma_manifest.tsv")
+    script:
+    """
+    echo -e "name\traw" > ${params.rn_runname}_magma_manifest.tsv
+    echo -e "${rows.join('\\n')}" >> ${params.rn_runname}_magma_manifest.tsv
     """
 }

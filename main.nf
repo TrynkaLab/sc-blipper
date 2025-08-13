@@ -6,3 +6,6 @@
 
 // Run pipeline
 include { cnmf } from './workflows/run_cnmf.nf'
+
+//include { enrich } from './workflows/enrichment.nf'
+

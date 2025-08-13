@@ -32,8 +32,8 @@ process cnmf_pre_process {
             cmd += " --n_variable ${params.cnmf.n_variable}"
         }
         
-        if (params.rn_feature_type_col != null) {
-            cmd += " --feature_type_col ${params.rn_feature_type_col}"
+        if (params.cnmf.feature_type_col != null) {
+            cmd += " --feature_type_col ${params.cnmf.feature_type_col}"
         }
         
         cmd

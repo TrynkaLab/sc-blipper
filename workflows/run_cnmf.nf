@@ -1,77 +1,32 @@
 #!/usr/bin/env nextflow
 
-include { seurat_to_h5ad; link_h5ad; } from '../processes/convert_to_h5ad.nf'
-include { merge_h5ad } from '../processes/merging.nf'
-include { fetch_gene_id_reference; invert_id_link } from "../processes/utils.nf"
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
-include { ensembl_to_magma_geneloc; perpare_sumstats; magma_annotate; magma_prepare; magma_merge; magma_assoc; magma_concat } from "../processes/magma.nf"
+include { magma_assoc } from "../processes/magma.nf"
+
+// Sub workflows
+include { fetch_id_linker } from "../workflows/id_linking.nf"
+include { convert_and_merge } from "../workflows/convert_merge.nf"
+include { magma_base } from "../workflows/magma.nf"
 
 // Main workflow
 workflow cnmf {
     //TODO: make gene linker file ids unique
     main:
-        // Always fetch this even if it is not used, can make it optional later
-        ensembl_reference = fetch_gene_id_reference(params.rn_ensembl_version)    
-        
-        // If needed, fetch ensembl file
-        if (params.convert.convert_gene_names) {
-            if (params.convert.id_linker != null) {
-                id_linker = file(params.convert.id_linker)
-                if (!id_linker.exists()) {
-                    throw new Exception("Supplied id linker file does not exist")
-                }
-                // Custom conversion file
-                id_linker = Channel.value(file(params.convert.id_linker))
-                id_linker_inv = invert_id_link(id_linker)
-            } else {        
-                        
-                if (params.convert.invert_linker) {
-                    // ENSEMBL > gene name conversion
-                    id_linker = ensembl_reference.ensembl_to_name
-                    id_linker_inv = ensembl_reference.name_to_ensembl
-                } else {
-                    // gene name > ENSEMBL conversion
-                    id_linker = ensembl_reference.name_to_ensembl
-                    id_linker_inv = ensembl_reference.ensembl_to_name
-                }
-            }
-        } else {
-            // In case there is no mapping file
-            id_linker = Channel.value(file("NO_MAPPING"))
-            id_linker_inv = Channel.value(file("NO_MAPPING"))
-        }
-    
+
         //------------------------------------------------------------
-        // Read manifests & input files
-        //------------------------------------------------------------
-        manifest = Channel.fromPath(params.rn_manifest)
-            .splitCsv(header:true, sep:"\t")
-            .map { row -> tuple(
-            row.id,
-            file(row.file),
-            row.convert_ids.equalsIgnoreCase("true"))}
+        // Id linking and ensembl reference
+        fetch_id_linker(params.rn_ensembl_version, params.convert)
         
-        // Auto detect if it is a h5ad already or a seurat file
-        manifest_split = manifest.branch{ it ->
-            h5ad: it[1].extension == "h5ad"
-            seu: ['rds', 'RDS', 'Rds'].contains(it[1].extension)
-            other: false
-        }
+        // Add the output in the global space for convenience
+        id_linker = fetch_id_linker.out.id_linker
+        id_linker_inv = fetch_id_linker.out.id_linker_inv
+        ensembl_reference = fetch_id_linker.out.ensembl_reference
+
+        //------------------------------------------------------------        
+        convert_and_merge(params.rn_manifest, params.rn_runname)
         
-        // Converts seurat files to h5ad
-        convert_out_a = seurat_to_h5ad(manifest_split.seu, id_linker).h5ad
-
-        // Converts just symplink h5ad the files so they are in the ouput
-        // In case conversion is needed, do that here
-        convert_out_b = link_h5ad(manifest_split.h5ad, id_linker).h5ad
-
-        // Merge the channels, they should now contain all h5ad files
-        convert_out = convert_out_a.concat(convert_out_b)
-        convert_out_flat = convert_out.flatMap{row -> {row[1]}}.collect()
-
-        // Merge the .h5ad files into a single file
-        merge_out = merge_h5ad(params.rn_runname, convert_out_flat).merged
+        merge_out = convert_and_merge.out.merge_out
         
         //--------------------------------------------------------
         // Optionally run cNMF preprocessing, which creates harmony corrected counts
@@ -196,70 +151,7 @@ workflow cnmf {
         // Run magma
         if (params.cnmf.run_magma) {
             
-            // Check if recomputing magma is needed
-            if (params.magma.manifest_magma == null) {
-                
-                // Read manifest
-                if (params.magma.manifest_sumstats != null) {
-                    manifest_sumstats_file = file(params.magma.manifest_sumstats)
-                    if (!manifest_sumstats_file.exists()) {
-                        throw new Exception("Supplied manifest_sumstats file does not exist")
-                    }
-                } else {
-                    throw new Exception("Sumstat manifest is null, this is needed for magma")
-                }
-                
-                manifest_sumstats = Channel.fromPath(params.magma.manifest_sumstats)
-                .splitCsv(header:true, sep:"\t")
-                .map { row -> tuple(
-                row.name,
-                row.n,
-                row.variant_col,
-                row.p_col,
-                file(row.path))}
-                
-                // Plink reference files
-                prefix = file(params.magma.ld_reference).name
-                bedfile = file(params.magma.ld_reference + ".bed")
-                bimfile = file(params.magma.ld_reference + ".bim")
-                famfile = file(params.magma.ld_reference + ".fam")
-
-                if (!bedfile.exists() || !bimfile.exists() || !famfile.exists()) {throw new Exception("ld_reference .bed/.bim/.fam files do not exist. Check the path, and check if its plink, and you specified only the prefix")}
-                            
-                // Prepare geneloc file based on ensembl with gene names or gene id's matching
-                magma_geneloc = ensembl_to_magma_geneloc(ensembl_reference.ensembl, !params.convert.invert_linker)
-                
-                // Prepare the magma snp to gene mapping for the reference file
-                magma_gene_annot = magma_annotate("v"+params.rn_ensembl_version+"_ensembl", 
-                                                bimfile,
-                                                magma_geneloc)
-                
-                // Prepare the summary stats snp_pval format
-                magma_sumstats = perpare_sumstats(manifest_sumstats)
-                
-                // ---------------------------------------------------------------
-                // Prepare the magma run 
-                // Make a channel per batch
-                magma_prepare_in = magma_sumstats
-                .map { v -> (1..params.magma.n_batch).collect{ i -> tuple(*v, i) } }
-                .flatMap()
-                            
-                // Run magma prepare
-                magma_prepare_out = magma_prepare(magma_prepare_in, tuple(prefix, bedfile, bimfile, famfile), magma_gene_annot)
-                            
-                // Groups the output and releases it as soon as it is done
-                magma_merge_in = magma_prepare_out.groupTuple(by:0, size: params.magma.n_batch).map{row -> tuple(row[0], row[1].flatten())}
-                
-                // Merge the magma results over the batches
-                magma_merge_out = magma_merge(magma_merge_in)
-            } else {
-                // Using previous magma results from manifest
-                magma_merge_out = Channel.fromPath(params.magma.manifest_magma)
-                    .splitCsv(header:true, sep:"\t")
-                    .map { row -> tuple(
-                    row.name,
-                    row.raw)}
-            }
+            magma_base(params.magma, params.convert, params.rn_ensembl_version, ensembl_reference)
             
             // Magma association with cnmf
             magma_cnmf_in = cnmf_out.spectra_k.filter { tuple ->
@@ -267,7 +159,7 @@ workflow cnmf {
                     !(k in params.cnmf.k_ignore.split(','))
                 }.map{i -> tuple("k_"+i[0], i[1])}
                 
-            magma_assoc_in = magma_merge_out.raw.combine(magma_cnmf_in)
+            magma_assoc_in = magma_base.out.raw.combine(magma_cnmf_in)
             
             // Run regression based magma
             magma_assoc_out = magma_assoc(magma_assoc_in, true)

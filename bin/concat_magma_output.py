@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
+import re
 
 def main():
     if len(sys.argv) < 3:
@@ -14,16 +15,35 @@ def main():
     merged_rows = []
 
     for file_path in input_files:
+        
+        read_header=False
         with open(file_path, "r") as f:
             for line in f:
                 if line.strip().startswith("#") or not line.strip():
                     continue
                 parts = line.strip().split()
+                
                 # First non-comment line in the first file becomes header
-                if header is None:
-                    header = parts + ["FILENAME"]
+                if not read_header:
+                    read_header = True
+                    if header is None:
+                        header = parts + ["FILENAME", "TRAIT", "DATABASE"]
                     continue
-                merged_rows.append(parts + [os.path.basename(file_path)])
+                
+                filename = os.path.basename(file_path)
+                parts.append(filename)
+                
+                pattern = re.compile(r'^(.+?)__(.+?)\.gsa\.out$')
+                match = pattern.match(filename)
+                if match:
+                    trait, database = match.groups()
+                    parts.append(trait)
+                    parts.append(database)
+                else:
+                    parts.append("NA")
+                    parts.append("NA")
+               
+                merged_rows.append(parts)
 
     # Write to TSV
     with open(output_file, "w") as out:

@@ -20,7 +20,7 @@ export NXF_OPTS="-Xms14G -Xmx14G -Dnxf.pool.maxThreads=2000"
 # This fancy logging is a bit funky and designed for interactive sessions!
 # Alternatively: tail -f <logfile>  or watch -n 1 tail -10 <logfile> 
 # if not suing an interactive session
-export NXF_ANSI_LOG=false
+export NXF_ANSI_LOG=true
  
 # General Nextflow variables #
  
@@ -39,7 +39,10 @@ mkdir -p logs/${prefix}
 #-----------------------------------------------------------------
 # Print usage
 usage() {
-    echo "Usage: $0 {cnmf|enrich|convert} -c <file.nf>"
+    echo "Usage: $0 <cnmf|enrich|convert> -c <file.nf> [-l]"
+    echo "<cnmf|enrich|convert> The workflow to run"
+    echo "-c <path/to/config.nf> Nextflow config file for the run"
+    echo "-l Run nextflow locally instead of submitting to oversubscribed"
     exit 1
 }
 
@@ -53,7 +56,7 @@ WORKFLOW="$1"
 ALLOWED=("cnmf" "enrich" "convert")
 
 if [[ ! " ${ALLOWED[*]} " =~ " ${WORKFLOW} " ]]; then
-    echo "Error: Invalid workflow '$WORKFLOW'"
+    echo "❌ Error: Invalid workflow '$WORKFLOW'"
     echo "Allowed commands are: ${ALLOWED[*]}"
     exit 1
 fi
@@ -61,10 +64,14 @@ fi
 # Remove first argument so we can parse the rest
 shift
 
-while getopts "c:h:" opt; do
+SUBMIT=1
+while getopts "c:h:l" opt; do
     case $opt in
         c)
             CONFIG_FILE="$OPTARG"
+            ;;
+        l)
+            SUBMIT=0
             ;;
         h)
             usage
@@ -80,18 +87,19 @@ done
 
 # --- Check that -c was provided ---
 if [ -z "$CONFIG_FILE" ]; then
-    echo "Error: Missing -c <config.nf> argument"
+    echo "❌ Error: Missing -c <config.nf> argument"
     usage
 fi
 
 # --- Check .nf extension ---
 if [[ ! "$CONFIG_FILE" =~ \.nf$ ]]; then
-    echo "Error: File '$CONFIG_FILE' must have .nf extension"
+    echo "❌ Error: File '$CONFIG_FILE' must have .nf extension"
     exit 1
 fi
 
-echo "✅ Workflow: $WORKFLOW"
-echo "✅ Config file: $CONFIG_FILE"
+echo "⬆️  Workflow: $WORKFLOW"
+echo "📄 Config file: $CONFIG_FILE"
+echo "📒 Logs: logs/${prefix}"
 
 # Build the nextflow command, in this case, parameters are specified through the config
 CMD="nextflow \
@@ -108,5 +116,18 @@ run ${NF_FILE} \
 echo "--------------------------------------------------------------------"
 echo $CMD
 echo "--------------------------------------------------------------------"
-eval $CMD
+if [ $SUBMIT -eq 0 ]; then
+    eval $CMD
+else
+    CMD="bsub -n 1 \
+    -G teamtrynka \
+    -M 8000 \
+    -q oversubscribed \
+    -W 12:00 \
+    -R 'span[hosts=1] select[mem>8000] rusage[mem=8000]' \
+    -o logs/${prefix}/${WORKFLOW}-%J.out \
+    -e logs/${prefix}/${WORKFLOW}-%J.err \
+    $CMD"
 
+    eval $CMD
+fi
