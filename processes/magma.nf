@@ -118,48 +118,159 @@ process magma_annotate {
 }
 
 process magma_prepare {
-    label params.maga.label
+    label params.magma.label
     
     container params.magma.container
     conda params.magma.conda
     
-    publishDir "$params.rn_publish_dir/magma/per_trait/${name}", mode: 'symlink'
+    //publishDir "$params.rn_publish_dir/magma/per_trait/${name}", mode: 'symlink'
     
     input:
+        tuple val(name), val(n), val(variant_col), val(p_col), file(sumstat), val(batch)
         tuple val(plink), file(bed), file(bim), file(fam)
-        tuple val(name), val(n), val(variant_col), val(p_col), file(sumstat)
         file(gene_annot)
     output:
-        path("${name}_magma_gene*")
+        tuple val("${name}"), path("${name}.batch*"), emit: batches
     script:
     """
     magma --bfile ${plink} \
     --pval ${sumstat} N=${n} \
     --gene-annot ${gene_annot} \
-    --out ${name}_magma_gene \
+    --out ${name} \
+    --batch ${batch} ${params.magma.n_batch}
+    """
+}
+
+
+process magma_merge {
+    label params.magma.label
+    
+    container params.magma.container
+    conda params.magma.conda
+    
+    publishDir "$params.rn_publish_dir/magma/per_trait/${name}", mode: 'symlink'
+        
+    input:
+        tuple val(name), path(files)
+        
+    output:
+        tuple val("${name}"), path("${name}*.log"), emit: logs
+        tuple val("${name}"), path("${name}.genes.raw"), emit: raw
+        tuple val("${name}"), path("${name}.genes.out"), emit: out
+        
+    script:
+    """
+    magma --merge ${name} --out ${name}
+    
+    # Collect the individual logs of the batches, to diagnose any issues
+    cat *batch*.log > ${name}.batches.log
     """
 }
 
 
 process magma_enrich {
-    label params.maga.label
+    label params.magma.label
     
     container params.magma.container
     conda params.magma.conda
     
-    publishDir "$params.rn_publish_dir/magma/per_trait/${name}", mode: 'symlink'
-    
+    publishDir "$params.rn_publish_dir/magma/per_trait/${trait}/enrich", mode: 'symlink'
+        
     input:
-        tuple val(plink), file(bed), file(bim), file(fam)
-        tuple val(name), val(n), val(variant_col), val(p_col), file(sumstat)
-        file(gene_annot)
+        tuple val(trait), file(magma_raw), val(database), file(geneset)
+        
     output:
-        path("${name}_magma_gene*")
+        path("${database}.log", emit: log)
+        path("${database}.raw", emit: raw)
+        path("${database}.out", emit: out)
+        
     script:
     """
-    magma --bfile ${plink} \
-    --pval ${sumstat} N=${n} \
-    --gene-annot ${gene_annot} \
-    --out ${name}_magma_gene \
+    magma --gene-results ${magma_raw} \
+    --set-annot ${geneset} \
+    --out ${trait}_${database} \
+    """
+}
+
+
+process magma_assoc {
+    label params.magma.label
+    
+    container params.magma.container
+    conda params.magma.conda
+    
+    publishDir "$params.rn_publish_dir/magma/per_trait/${trait}/assoc", mode: 'symlink'
+        
+    input:
+        tuple val(trait), file(magma_raw), val(database), file(matrix)
+        val(transpose)
+        
+    output:
+        path("${trait}_${database}.gsa.out", emit: out)
+        path("${trait}_${database}.log", emit: logs)
+    script:
+    
+    cmd =
+    """
+    if [[ "$matrix" == *.gz ]]; then
+        echo "File is gzipped, unzipping"
+        gunzip -c $matrix > unzipped.tsv
+    
+    else
+        echo "File is already unzipped, linking"
+        ln -s $matrix unzipped.tsv
+    fi
+    
+    input="unzipped.tsv"
+    """
+    
+    if (transpose) {
+    cmd += 
+    """
+    > transposed.tsv 
+    n_cols=\$(head -2 "unzipped.tsv" | tail -n 1 | awk -F'\t' '{print NF}')
+    for i in \$(seq 1 \$n_cols); do
+            
+        # If it is the first column, and the rownames id is missing, add it here
+        if (( i == 1 )); then
+            cut -f "\$i" "unzipped.tsv" | sed "s/^\$/ROW/g" | paste -s -d '\t' >> transposed.tsv
+        else
+            cut -f "\$i" "unzipped.tsv" | paste -s -d '\t' >> transposed.tsv
+        fi
+    done
+    rm unzipped.tsv
+    input="transposed.tsv"
+    """
+    }
+    
+    cmd +=
+    """
+    magma --gene-results ${magma_raw} \
+    --gene-covar \$input \
+    --out ${trait}_${database} \
+    """
+    
+    cmd
+}
+
+
+
+process magma_concat {
+    label params.magma.label
+    
+    container params.magma.container
+    conda params.magma.conda
+    
+    publishDir "$params.rn_publish_dir/magma/", mode: 'symlink'
+        
+    input:
+        val(name)
+        path(files)
+    output:
+        path("${name}_merged_magma_results.tsv", emit: out)
+        
+    script:
+    """
+    concat_magma_output.py ${name}_merged_magma_results.tsv ${files}
     """
 }

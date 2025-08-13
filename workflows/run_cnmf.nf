@@ -5,7 +5,7 @@ include { merge_h5ad } from '../processes/merging.nf'
 include { fetch_gene_id_reference; invert_id_link } from "../processes/utils.nf"
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
-include { ensembl_to_magma_geneloc; perpare_sumstats; magma_annotate; magma_prepare } from "../processes/magma.nf"
+include { ensembl_to_magma_geneloc; perpare_sumstats; magma_annotate; magma_prepare; magma_merge; magma_assoc; magma_concat } from "../processes/magma.nf"
 
 // Main workflow
 workflow cnmf {
@@ -196,46 +196,84 @@ workflow cnmf {
         // Run magma
         if (params.cnmf.run_magma) {
             
-            // Read manifest
-            if (params.magma.manifest_sumstats != null) {
-                manifest_sumstats_file = file(params.magma.manifest_sumstats)
-                if (!manifest_sumstats_file.exists()) {
-                    throw new Exception("Supplied manifest_sumstats file does not exist")
+            // Check if recomputing magma is needed
+            if (params.magma.manifest_magma == null) {
+                
+                // Read manifest
+                if (params.magma.manifest_sumstats != null) {
+                    manifest_sumstats_file = file(params.magma.manifest_sumstats)
+                    if (!manifest_sumstats_file.exists()) {
+                        throw new Exception("Supplied manifest_sumstats file does not exist")
+                    }
+                } else {
+                    throw new Exception("Sumstat manifest is null, this is needed for magma")
                 }
+                
+                manifest_sumstats = Channel.fromPath(params.magma.manifest_sumstats)
+                .splitCsv(header:true, sep:"\t")
+                .map { row -> tuple(
+                row.name,
+                row.n,
+                row.variant_col,
+                row.p_col,
+                file(row.path))}
+                
+                // Plink reference files
+                prefix = file(params.magma.ld_reference).name
+                bedfile = file(params.magma.ld_reference + ".bed")
+                bimfile = file(params.magma.ld_reference + ".bim")
+                famfile = file(params.magma.ld_reference + ".fam")
+
+                if (!bedfile.exists() || !bimfile.exists() || !famfile.exists()) {throw new Exception("ld_reference .bed/.bim/.fam files do not exist. Check the path, and check if its plink, and you specified only the prefix")}
+                            
+                // Prepare geneloc file based on ensembl with gene names or gene id's matching
+                magma_geneloc = ensembl_to_magma_geneloc(ensembl_reference.ensembl, !params.convert.invert_linker)
+                
+                // Prepare the magma snp to gene mapping for the reference file
+                magma_gene_annot = magma_annotate("v"+params.rn_ensembl_version+"_ensembl", 
+                                                bimfile,
+                                                magma_geneloc)
+                
+                // Prepare the summary stats snp_pval format
+                magma_sumstats = perpare_sumstats(manifest_sumstats)
+                
+                // ---------------------------------------------------------------
+                // Prepare the magma run 
+                // Make a channel per batch
+                magma_prepare_in = magma_sumstats
+                .map { v -> (1..params.magma.n_batch).collect{ i -> tuple(*v, i) } }
+                .flatMap()
+                            
+                // Run magma prepare
+                magma_prepare_out = magma_prepare(magma_prepare_in, tuple(prefix, bedfile, bimfile, famfile), magma_gene_annot)
+                            
+                // Groups the output and releases it as soon as it is done
+                magma_merge_in = magma_prepare_out.groupTuple(by:0, size: params.magma.n_batch).map{row -> tuple(row[0], row[1].flatten())}
+                
+                // Merge the magma results over the batches
+                magma_merge_out = magma_merge(magma_merge_in)
             } else {
-                throw new Exception("Sumstat manifest is null, this is needed for magma")
+                // Using previous magma results from manifest
+                magma_merge_out = Channel.fromPath(params.magma.manifest_magma)
+                    .splitCsv(header:true, sep:"\t")
+                    .map { row -> tuple(
+                    row.name,
+                    row.raw)}
             }
             
-            manifest_sumstats = Channel.fromPath(params.magma.manifest_sumstats)
-            .splitCsv(header:true, sep:"\t")
-            .map { row -> tuple(
-            row.name,
-            row.n,
-            row.variant_col,
-            row.p_col,
-            file(row.path))}
+            // Magma association with cnmf
+            magma_cnmf_in = cnmf_out.spectra_k.filter { tuple ->
+                    def (k, path) = tuple
+                    !(k in params.cnmf.k_ignore.split(','))
+                }.map{i -> tuple("k_"+i[0], i[1])}
+                
+            magma_assoc_in = magma_merge_out.raw.combine(magma_cnmf_in)
             
-            // Plink reference files
-            prefix = file(params.magma.ld_reference).name
-            bedfile = file(params.magma.ld_reference + ".bed")
-            bimfile = file(params.magma.ld_reference + ".bim")
-            famfile = file(params.magma.ld_reference + ".fam")
-
-            if (!bedfile.exists() || !bimfile.exists() || !famfile.exists()) {throw new Exception("ld_reference .bed/.bim/.fam files do not exist. Check the path, and check if its plink, and you specified only the prefix")}
-                        
-            // Prepare geneloc file based on ensembl with gene names or gene id's matching
-            magma_geneloc = ensembl_to_magma_geneloc(ensembl_reference.ensembl, !params.convert.invert_linker)
-            
-            // Prepare the magma snp to gene mapping for the reference file
-            magma_gene_annot = magma_annotate("v"+params.rn_ensembl_version+"_ensembl", 
-                                            bimfile,
-                                            magma_geneloc)
-            
-            // Prepare the summary stats snp_pval format
-            magma_sumstats = perpare_sumstats(manifest_sumstats)
-            
-            // Prepare the magma run 
-            magma_prepare(tuple(prefix, bedfile, bimfile, famfile), magma_sumstats, magma_gene_annot)
+            // Run regression based magma
+            magma_assoc_out = magma_assoc(magma_assoc_in, true)
+         
+            // Concat the results in a single table
+            magma_concat(params.rn_runname, magma_assoc_out.out.collect())
             
         }
         
