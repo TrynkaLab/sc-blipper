@@ -5,11 +5,15 @@ include { merge_h5ad } from '../processes/merging.nf'
 include { fetch_gene_id_reference; invert_id_link } from "../processes/utils.nf"
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
+include { ensembl_to_magma_geneloc; perpare_sumstats; magma_annotate; magma_prepare } from "../processes/magma.nf"
 
 // Main workflow
-workflow run_cnmf {
-    
+workflow cnmf {
+    //TODO: make gene linker file ids unique
     main:
+        // Always fetch this even if it is not used, can make it optional later
+        ensembl_reference = fetch_gene_id_reference(params.rn_ensembl_version)    
+        
         // If needed, fetch ensembl file
         if (params.convert.convert_gene_names) {
             if (params.convert.id_linker != null) {
@@ -21,7 +25,6 @@ workflow run_cnmf {
                 id_linker = Channel.value(file(params.convert.id_linker))
                 id_linker_inv = invert_id_link(id_linker)
             } else {        
-                ensembl_reference = fetch_gene_id_reference(params.convert.ensembl_version)
                         
                 if (params.convert.invert_linker) {
                     // ENSEMBL > gene name conversion
@@ -37,7 +40,6 @@ workflow run_cnmf {
             // In case there is no mapping file
             id_linker = Channel.value(file("NO_MAPPING"))
             id_linker_inv = Channel.value(file("NO_MAPPING"))
-
         }
     
         //------------------------------------------------------------
@@ -119,11 +121,15 @@ workflow run_cnmf {
 
         //--------------------------------------------------------
         // Optional post-proccessing of cnmf
+        //--------------------------------------------------------
+
+        //----------------------------------------------------------------------------------
+        // Run gene set enrichment
         if (params.cnmf.run_enrichment && params.enrich.gmt_files != null) {
             
             // Channel with gmt files
             gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
-            gmt_files.view()
+
             // Universe channel
             if (params.enrich.universe) {
                 universe = file(params.enrich.universe)
@@ -164,6 +170,7 @@ workflow run_cnmf {
                 params.enrich.use_top)
         }
         
+        //----------------------------------------------------------------------------------
         // Run decoupler (Progeny + collecTRI)
         if (params.cnmf.run_decoupler) {
             
@@ -183,6 +190,53 @@ workflow run_cnmf {
                 // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
                 decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, id_linker_inv) 
             }
+        }
+        
+        //----------------------------------------------------------------------------------
+        // Run magma
+        if (params.cnmf.run_magma) {
+            
+            // Read manifest
+            if (params.magma.manifest_sumstats != null) {
+                manifest_sumstats_file = file(params.magma.manifest_sumstats)
+                if (!manifest_sumstats_file.exists()) {
+                    throw new Exception("Supplied manifest_sumstats file does not exist")
+                }
+            } else {
+                throw new Exception("Sumstat manifest is null, this is needed for magma")
+            }
+            
+            manifest_sumstats = Channel.fromPath(params.magma.manifest_sumstats)
+            .splitCsv(header:true, sep:"\t")
+            .map { row -> tuple(
+            row.name,
+            row.n,
+            row.variant_col,
+            row.p_col,
+            file(row.path))}
+            
+            // Plink reference files
+            prefix = file(params.magma.ld_reference).name
+            bedfile = file(params.magma.ld_reference + ".bed")
+            bimfile = file(params.magma.ld_reference + ".bim")
+            famfile = file(params.magma.ld_reference + ".fam")
+
+            if (!bedfile.exists() || !bimfile.exists() || !famfile.exists()) {throw new Exception("ld_reference .bed/.bim/.fam files do not exist. Check the path, and check if its plink, and you specified only the prefix")}
+                        
+            // Prepare geneloc file based on ensembl with gene names or gene id's matching
+            magma_geneloc = ensembl_to_magma_geneloc(ensembl_reference.ensembl, !params.convert.invert_linker)
+            
+            // Prepare the magma snp to gene mapping for the reference file
+            magma_gene_annot = magma_annotate("v"+params.rn_ensembl_version+"_ensembl", 
+                                            bimfile,
+                                            magma_geneloc)
+            
+            // Prepare the summary stats snp_pval format
+            magma_sumstats = perpare_sumstats(manifest_sumstats)
+            
+            // Prepare the magma run 
+            magma_prepare(tuple(prefix, bedfile, bimfile, famfile), magma_sumstats, magma_gene_annot)
+            
         }
         
         

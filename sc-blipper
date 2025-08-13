@@ -50,6 +50,8 @@ if [ -z "$1" ]; then
 fi
 
 WORKFLOW="$1"
+ALLOWED=("cnmf" "enrich" "convert")
+
 if [[ ! " ${ALLOWED[*]} " =~ " ${WORKFLOW} " ]]; then
     echo "Error: Invalid workflow '$WORKFLOW'"
     echo "Allowed commands are: ${ALLOWED[*]}"
@@ -101,7 +103,7 @@ run ${NF_FILE} \
 -entry ${WORKFLOW} \
 -with-report logs/${prefix}/${WORKFLOW}.nextflow.html \
 -with-trace logs/${prefix}/${WORKFLOW}.nextflow.trace \
--c ${CONFIG}"
+-c ${CONFIG_FILE}"
 
 echo "--------------------------------------------------------------------"
 echo $CMD

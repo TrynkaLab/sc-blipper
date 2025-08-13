@@ -12,9 +12,9 @@ process fetch_gene_id_reference {
     input:
         val(version)
     output:
-        path("v*_ensembl.tsv", emit: ensembl)
-        path("v*_name_to_ensembl.tsv", emit: name_to_ensembl)
-        path("v*_ensembl_to_name.tsv", emit: ensembl_to_name)
+        path("v${version}_ensembl.tsv", emit: ensembl)
+        path("v${version}_name_to_ensembl.tsv", emit: name_to_ensembl)
+        path("v${version}_ensembl_to_name.tsv", emit: ensembl_to_name)
     script:
     
     cmd =
