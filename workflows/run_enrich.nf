@@ -1,9 +1,12 @@
+#!/usr/bin/env nextflow
+
+// Processes
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 
-include { fetch_id_linker } from "../workflows/id_linking.nf"
-include { magma_base } from "../workflows/magma.nf"
-
+// Subworkflows
+include { fetch_id_linker } from "../subworkflows/id_linking.nf"
+include { magma_base } from "../subworkflows/magma.nf"
 
 
 // Main workflow

@@ -7,5 +7,5 @@
 // Run pipeline
 include { cnmf } from './workflows/run_cnmf.nf'
 
-//include { enrich } from './workflows/enrichment.nf'
+include { enrich } from './workflows/run_enrich.nf'
 

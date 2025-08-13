@@ -1,13 +1,14 @@
 #!/usr/bin/env nextflow
 
+// Processes
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 
-// Sub workflows
-include { fetch_id_linker } from "../workflows/id_linking.nf"
-include { convert_and_merge } from "../workflows/convert_merge.nf"
-include { magma_base } from "../workflows/magma.nf"
+// Subworkflows
+include { fetch_id_linker } from "../subworkflows/id_linking.nf"
+include { convert_and_merge } from "../subworkflows/convert_merge.nf"
+include { magma_base } from "../subworkflows/magma.nf"
 
 // Main workflow
 workflow cnmf {
