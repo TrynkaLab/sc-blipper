@@ -141,14 +141,13 @@ process magma_prepare {
     """
 }
 
-
 process magma_merge {
     label params.magma.label
     
     container params.magma.container
     conda params.magma.conda
     
-    publishDir "$params.rn_publish_dir/magma/per_trait/${name}", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/reference/magma/gene_scores/${name}", mode: 'symlink'
         
     input:
         tuple val(name), path(files)
@@ -166,7 +165,6 @@ process magma_merge {
     cat *batch*.log > ${name}.batches.log
     """
 }
-
 
 process magma_enrich {
     label params.magma.label
@@ -191,7 +189,6 @@ process magma_enrich {
     --out ${trait}_${database} \
     """
 }
-
 
 process magma_assoc {
     label params.magma.label
@@ -253,8 +250,6 @@ process magma_assoc {
     cmd
 }
 
-
-
 process magma_concat {
     label params.magma.label
     
@@ -275,11 +270,10 @@ process magma_concat {
     """
 }
 
-
 process magma_write_manifest {
     label "tiny"
     
-    publishDir "$params.rn_publish_dir/magma/", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/reference/magma/", mode: 'symlink'
     
     input:
         val(rows)
