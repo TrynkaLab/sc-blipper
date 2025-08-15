@@ -117,7 +117,7 @@ option_list <- list(
   make_option(c("--cache_dir"),
               type = "character", default = NULL,
               help = "Cache dir for OmniPathR. Default: NULL (home dir)"),
-  make_option(c("--gene_to_ensembl"),
+  make_option(c("--id_linker"),
             type = "character", default = NULL,
             help = "TSV file with gene name to ensembl (old, new) to convert ominpath with Default: NULL")
 )
@@ -138,8 +138,8 @@ if (any(is.null(opt$matrix), is.null(opt$output_prefix))) {
 }
 
 # If the input has ensembl ids use this file to convert omnipath
-if (!is.null(opt$gene_to_ensembl)) {
-  mapping               <- read.table(mapping_file, header=FALSE, sep="\t", stringsAsFactors=FALSE)
+if (!is.null(opt$id_linker)) {
+  mapping               <- read.table(opt$id_linker, header=FALSE, sep="\t", stringsAsFactors=FALSE)
   colnames(mapping)     <- c("old", "new")
   gene_replacement      <- setNames(mapping$new, mapping$old)
   gene_replacement_rev  <- setNames(mapping$old, mapping$new)
@@ -150,9 +150,15 @@ if (!is.null(opt$gene_to_ensembl)) {
 
 #-------------------------------------------------------------------------------
 # Load numeric matrix (genes in rows, columns are samples or contrasts)
-mat           <- as.matrix(fread(opt$matrix, data.table=FALSE))
+mat           <- fread(opt$matrix, data.table=FALSE, header=T)
 rownames(mat) <- mat[,1]
 mat           <- mat[,-1]
+mat           <- as.matrix(mat)
+
+if (!class(mat[1,1]) %in% c("numeric", "integer")) {
+  stop("[ERROR] Input matrix is not numeric\n")
+  q(save=FALSE, status=1)
+}
 
 # Transpose if requested
 if (opt$transpose) {
@@ -203,12 +209,12 @@ if (!is.null(gene_replacement_rev)) {
   rownames(df.plot) <- gene_replacement_rev[rownames(df.plot)]
 }
 
-pdf(width=2+(nrow(df.plot)*0.2), height=2+(ncol(df.plot)*0.5), file=paste0(opt$output_prefix, "_pathways.pdf"))
+pdf(width=2+(nrow(df.plot)*0.5), height=2+(ncol(df.plot)*0.5), file=paste0(opt$output_prefix, "_pathways.pdf"))
 plot_simple_hm(df.plot, cellheight = 15, cellwidth = 15)
 dev.off()
 
 
-pdf(width=2+(nrow(df.plot)*0.2), height=2+(ncol(df.plot)*0.5), file=paste0(opt$output_prefix, "_pathways_scaled.pdf"))
+pdf(width=2+(nrow(df.plot)*0.5), height=2+(ncol(df.plot)*0.5), file=paste0(opt$output_prefix, "_pathways_scaled.pdf"))
 plot_simple_hm(t(scale(t(df.plot))), cellheight = 15, cellwidth = 15)
 dev.off()
 

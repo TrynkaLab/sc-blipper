@@ -3,7 +3,9 @@
 // Processes
 include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
-include { magma_assoc; magma_concat } from "../processes/magma.nf"
+include { magma_assoc } from "../processes/magma.nf"
+include { magma_concat as magma_concat_main } from "../processes/magma.nf"
+include { magma_concat as magma_concat_per_k } from "../processes/magma.nf"
 
 // Subworkflows
 include { fetch_id_linker } from "../subworkflows/id_linking.nf"
@@ -20,12 +22,18 @@ workflow cnmf {
         fetch_id_linker(params.rn_ensembl_version, params.convert)
         
         // Add the output in the global space for convenience
-        id_linker = fetch_id_linker.out.id_linker
-        id_linker_inv = fetch_id_linker.out.id_linker_inv
+        id_linker         = fetch_id_linker.out.id_linker
+        id_linker_inv     = fetch_id_linker.out.id_linker_inv
         ensembl_reference = fetch_id_linker.out.ensembl_reference
 
-        //------------------------------------------------------------        
-        convert_and_merge(params.rn_manifest, params.rn_runname, id_linker)
+        if (params.convert.convert_gene_names) {
+            converter = id_linker
+        } else {
+            converter = Channel.value("NO_MAPPING")
+        }   
+        //------------------------------------------------------------ 
+        // Merge seurat and H5 files
+        convert_and_merge(params.rn_manifest, params.rn_runname, converter)
         
         merge_out = convert_and_merge.out.merge_out
         
@@ -37,17 +45,21 @@ workflow cnmf {
             
             // Channel with run name and .h5ad file with counts
             cnmf_in = cnmf_preprocess.preproccessed
+            cnmf_in_tpm = cnmf_preprocess.normalized
+            cnmf_in_hvg = cnmf_preprocess.hvg
         } else {
             // Otherwise use the merged file, in case there is one batch,
             // just uses the other file
             cnmf_in = merge_out
+            cnmf_in_tpm = Channel.value(file("NO_TPM"))
+            cnmf_in_hvg = Channel.value(file("NO_HVG"))
         }
             
         //--------------------------------------------------------
         //                       cNMF
         //--------------------------------------------------------
         // Prepare the cnmf input folder 
-        cnmf_prepared = cnmf_prepare(cnmf_in)
+        cnmf_prepared = cnmf_prepare(cnmf_in, cnmf_in_tpm, cnmf_in_hvg)
         
         // Create the channel with the n_workers for jobs to run in parallel
         cnmf_factorize_in = cnmf_prepared
@@ -89,7 +101,7 @@ workflow cnmf {
             // Universe channel
             if (params.enrich.universe) {
                 universe = file(params.enrich.universe)
-                if (!id_linker.exists()) {
+                if (!universe.exists()) {
                     throw new Exception("Supplied id universe file does not exist")
                 }
                 // Custom conversion file
@@ -100,12 +112,12 @@ workflow cnmf {
             }
     
             if (params.cnmf.k_ignore != null) {
-                gsea_in = cnmf_out.spectra_k.filter { tuple ->
+                gsea_in = cnmf_out.spectra_score.filter { tuple ->
                     def (k, path) = tuple
                     !(k in params.cnmf.k_ignore.split(','))
                 }.map{i -> tuple("k_"+i[0], i[1])}
             } else {
-                gsea_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
+                gsea_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
             }
 
             // Run GSEA
@@ -131,20 +143,20 @@ workflow cnmf {
         if (params.cnmf.run_decoupler) {
             
             if (params.cnmf.k_ignore != null) {
-                decoupler_in = cnmf_out.spectra_k.filter { tuple ->
+                decoupler_in = cnmf_out.spectra_score.filter { tuple ->
                     def (k, path) = tuple
                     !(k in params.cnmf.k_ignore.split(','))
                 }.map{i -> tuple("k_"+i[0], i[1])}
             } else {
-                decoupler_in = cnmf_out.spectra_k.map{i -> tuple("k_"+i[0], i[1])}
+                decoupler_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
             }
-            
-            if (params.convert.invert_linker) {
-                // This assumes you have converted to gene symbols
-                decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
-            } else {
+            is_ensembl = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)          
+            if (is_ensembl) {
                 // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
                 decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, id_linker_inv) 
+            } else {
+                // This assumes you have converted to gene symbols
+                decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
             }
         }
         
@@ -155,7 +167,7 @@ workflow cnmf {
             magma_base(params.magma, params.convert, params.rn_ensembl_version, ensembl_reference)
             
             // Magma association with cnmf
-            magma_cnmf_in = cnmf_out.spectra_k.filter { tuple ->
+            magma_cnmf_in = cnmf_out.spectra_score.filter { tuple ->
                     def (k, path) = tuple
                     !(k in params.cnmf.k_ignore.split(','))
                 }.map{i -> tuple("k_"+i[0], i[1])}
@@ -163,11 +175,16 @@ workflow cnmf {
             magma_assoc_in = magma_base.out.raw.combine(magma_cnmf_in)
             
             // Run regression based magma
-            magma_assoc_out = magma_assoc(magma_assoc_in, true)
-         
+            magma_assoc_out = magma_assoc(magma_assoc_in, true, universe, file("NO_MAPPING"))
+                  
             // Concat the results in a single table
-            magma_concat(params.rn_runname, magma_assoc_out.out.collect())
             
+            concat_in = magma_assoc_out.out.collect().map{ list -> ["magma", list]}
+            magma_concat_main("", concat_in)
+            
+            // Collect the results per k value as well
+            magma_concat_per_k("cnmf/consensus/${params.rn_runname}", magma_assoc_out.per_database.groupTuple())
+
         }
         
         

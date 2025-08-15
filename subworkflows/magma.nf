@@ -40,7 +40,9 @@ workflow magma_base {
             if (!bedfile.exists() || !bimfile.exists() || !famfile.exists()) {throw new Exception("ld_reference .bed/.bim/.fam files do not exist. Check the path, and check if its plink, and you specified only the prefix")}
                         
             // Prepare geneloc file based on ensembl with gene names or gene id's matching
-            magma_geneloc = ensembl_to_magma_geneloc(ensembl_reference, !convert.invert_linker)
+            is_ensembl = (convert.is_ensembl_id && !convert.convert_gene_names) || (!convert.is_ensembl_id && convert.convert_gene_names)
+
+            magma_geneloc = ensembl_to_magma_geneloc(ensembl_reference, is_ensembl)
             
             // Prepare the magma snp to gene mapping for the reference file
             magma_gene_annot = magma_annotate("v"+rn_ensembl_version+"_ensembl", 

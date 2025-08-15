@@ -107,7 +107,9 @@ option_list <- list(
               help = "When --threshold or --use_top, use the absolute value instead. Default: TRUE"),
   make_option(c("-u", "--universe"),
               type = "character", default = NA,
-              help = "Optional gene universe file (one gene per line). Defaults to all genes in the matrix.")
+              help = "Optional gene universe file (one gene per line). Defaults to all genes in the matrix."),
+  make_option(c("--update_rows"),
+              type = "character", help = "Path to file with 'old' 'new' ids. Applied after transpose", default=NULL)
 )
 
 
@@ -121,19 +123,34 @@ if (!is.null(opt$use_top)) {
 
 
 # Load numeric matrix (genes in rows, columns are samples or contrasts)
-mat           <- as.matrix(fread(opt$matrix, data.table=FALSE))
+mat           <- fread(opt$matrix, data.table=FALSE, header=T)
 rownames(mat) <- mat[,1]
 mat           <- mat[,-1]
+mat           <- as.matrix(mat)
+
+if (!class(mat[1,1]) %in% c("numeric", "integer")) {
+  stop("[ERROR] Input matrix is not numeric\n")
+  q(save=FALSE, status=1)
+}
 
 # Transpose if requested
 if (opt$transpose) {
   mat <- t(mat)
 }
 
+if (!is.null(opt$update_rows)) {
+  mapping               <- read.table(mapping_file, header=FALSE, sep="\t", stringsAsFactors=FALSE)
+  colnames(mapping)     <- c("old", "new")
+  gene_replacement      <- setNames(mapping$new, mapping$old)
+  gene_replacement_rev  <- setNames(mapping$old, mapping$new)
+  rownames(mat)     <- gene_replacement[rownames(mat)]
+}
+
 # Determine gene universe
 if (!is.na(opt$universe)) {
   gene_universe <- scan(opt$universe, what = character())
   gene_universe <- intersect(rownames(mat), gene_universe)
+  cat("Universe-matrix overlap of ", length(gene_universe), "\n")
 } else {
   gene_universe <- rownames(mat)
 }
@@ -148,7 +165,7 @@ for (gmt_file in gmt_files) {
   gmt_name <- gsub(".symbols.gmt$|.gmt$|.ensembl.gmt$", "", basename(gmt_file))
   
   for (col_name in colnames(mat)) {
-    cur.mat <- mat[, col_name]
+    cur.mat <- mat[gene_universe, col_name]
     
     if (opt$absolute) {
       sign    <- sign(cur.mat)

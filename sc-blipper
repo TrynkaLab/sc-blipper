@@ -142,7 +142,7 @@ else
     CMD="bsub -n 1 \
     -G teamtrynka \
     -M 8000 \
-    -q oversubscribed \
+    -q normal \
     -W 12:00 \
     -R 'span[hosts=1] select[mem>8000] rusage[mem=8000]' \
     -o logs/${prefix}/${WORKFLOW}-%J.out \

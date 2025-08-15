@@ -18,35 +18,46 @@ process ensembl_to_magma_geneloc {
     """
     #!/usr/bin/env Rscript
     library(data.table)
-    
+
     file='$ensembl_file'
     ensembl <- fread(file, data.table=F)
-    
+
     ensembl[is.na(ensembl\$hgnc_symbol), "hgnc_symbol"] <- "NO_NAME"
     ensembl[ensembl\$hgnc_symbol == "",  "hgnc_symbol"] <- "NO_NAME"
     ensembl[ensembl\$hgnc_symbol == "NO_NAME",  "hgnc_symbol"] <- make.unique(ensembl[ensembl\$hgnc_symbol == "NO_NAME",  "hgnc_symbol"], sep="_")
         
     # Filter to protein coding only (like in the original column)
     ensembl <- ensembl[ensembl\$gene_biotype %in% c("protein_coding"),]
-    
+
     # Filter to autosomal genes
     ensembl <-  ensembl[ensembl\$chromosome_name %in% c(as.character(1:22), "X", "Y"),]
+
+    if ('$params.magma.remove_hla_genes' == 'true') {
+        # Remove genes on chr6:25,726,063-33,400,644 (GRCh38)
+        ensembl <- ensembl[ !(ensembl\$chromosome_name == "6" &
+                                ensembl\$start_position <= 33400644 &
+                                ensembl\$end_position >= 25726063), ]
+    }
 
     if ('$use_ensembl_id' == 'true') {
         magma <- ensembl[,c("ensembl_gene_id", "chromosome_name", "start_position", "end_position", "strand", "hgnc_symbol")]
     } else {
         magma <- ensembl[,c("hgnc_symbol", "chromosome_name", "start_position", "end_position", "strand", "ensembl_gene_id")]
     }
-    
+
     # Remove duplicated gene ids (could happen if gene names are used)
     magma <- magma[!duplicated(magma[,1]),]
-    
+
     # Convert strand
     magma\$strand <- ifelse(magma\$strand == 1, "+", "-")
-    
+
     out_name <- gsub(".tsv\$", "",basename(file))
-    
-    write.table(magma, file=paste0(out_name, "_magma_reference.gene.loc"), row.names=F, sep="\t", col.names=F, quote=F)
+
+    if ('$params.magma.remove_hla_genes' == 'true') {
+        write.table(magma, file=paste0(out_name, "_hla_rm_magma_reference.gene.loc"), row.names=F, sep="\t", col.names=F, quote=F)
+    } else {
+        write.table(magma, file=paste0(out_name, "_magma_reference.gene.loc"), row.names=F, sep="\t", col.names=F, quote=F)
+    }
     """   
 }
 
@@ -65,31 +76,7 @@ process perpare_sumstats {
         tuple val(name), val(n), val(variant_col), val(p_col), path("${name}_snp_pval.tsv")
     script:
     """
-    #!/usr/bin/env bash
-    
-    if [[ "$file" == *.gz ]]; then
-        echo "File is gzipped — using zcat"
-        zcat "$file" | awk -v varcol="${variant_col}" -v pcol="${p_col}" '
-            NR==1 {
-                for (i=1; i<=NF; i++) {
-                    if (\$i == varcol) vc=i
-                    if (\$i == pcol) pc=i
-                }
-                next
-            }{print \$vc"\t"\$pc}' > ${name}_snp_pval.tsv
-    
-    else
-        echo "File is plain text — using cat"
-        cat "$file" | awk -v varcol="${variant_col}" -v pcol="${p_col}" '
-            NR==1 {
-                for (i=1; i<=NF; i++) {
-                    if (\$i == varcol) vc=i
-                    if (\$i == pcol) pc=i
-                }
-                next
-            }{print \$vc"\t"\$pc}' > ${name}_snp_pval.tsv
-    fi
-
+    parse_sumstats.py --input ${file} --snp-col ${variant_col} --pval-col ${p_col} --output ${name}_snp_pval.tsv
     """    
 }
 
@@ -201,50 +188,45 @@ process magma_assoc {
     input:
         tuple val(trait), file(magma_raw), val(database), file(matrix)
         val(transpose)
-        
+        path(universe)
+        path(id_linker)
     output:
         path("${trait}__${database}.gsa.out", emit: out)
         path("${trait}__${database}.log", emit: logs)
+        tuple val("${database}"), path("${trait}__${database}.gsa.out"), emit: per_database
     script:
-    
     cmd =
     """
-    if [[ "$matrix" == *.gz ]]; then
-        echo "File is gzipped, unzipping"
-        gunzip -c $matrix > unzipped.tsv
-    
-    else
-        echo "File is already unzipped, linking"
-        ln -s $matrix unzipped.tsv
-    fi
-    
-    input="unzipped.tsv"
+    table_proccessor.py \
+    --input ${matrix} \
+    --output magma_prepared.tsv\
     """
     
-    if (transpose) {
-    cmd += 
-    """
-    > transposed.tsv 
-    n_cols=\$(head -2 "unzipped.tsv" | tail -n 1 | awk -F'\t' '{print NF}')
-    for i in \$(seq 1 \$n_cols); do
-            
-        # If it is the first column, and the rownames id is missing, add it here
-        if (( i == 1 )); then
-            cut -f "\$i" "unzipped.tsv" | sed "s/^\$/ROW/g" | paste -s -d '\t' >> transposed.tsv
-        else
-            cut -f "\$i" "unzipped.tsv" | paste -s -d '\t' >> transposed.tsv
-        fi
-    done
-    rm unzipped.tsv
-    input="transposed.tsv"
-    """
+    if (transpose) { 
+        cmd += " --transpose"
+        if (universe.getFileName().toString() != "NO_UNIVERSE") { 
+            cmd += " --col-file ${universe}"
+        }  
+        if (id_linker.getFileName().toString() != "NO_MAPPING") { 
+            cmd += " --update-cols ${id_linker}"
+        }
+    } else {
+        if (universe.getFileName().toString() != "NO_UNIVERSE") { 
+            cmd += " --row-file ${universe}"
+        }  
+        if (id_linker.getFileName().toString() != "NO_MAPPING") { 
+            cmd += " --update-rows ${id_linker}"
+        }
     }
     
     cmd +=
     """
     magma --gene-results ${magma_raw} \
-    --gene-covar \$input \
-    --out ${trait}__${database} \
+    --gene-covar magma_prepared.tsv \
+    --out ${trait}__${database}
+    
+    # Cleanup
+    rm magma_prepared.tsv
     """
     
     cmd
@@ -256,11 +238,11 @@ process magma_concat {
     container params.magma.container
     conda params.magma.conda
     
-    publishDir "$params.rn_publish_dir/magma/", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/${prefix}/${name}/enrichments", mode: 'symlink'
         
     input:
-        val(name)
-        path(files)
+        val(prefix)
+        tuple val(name), path(files)
     output:
         path("${name}_merged_magma_results.tsv", emit: out)
         

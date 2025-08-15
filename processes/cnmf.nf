@@ -51,6 +51,8 @@ process cnmf_prepare {
     
     input:
         tuple val(id), path(file)
+        path(tpm)
+        path(hvg)
     output:
         tuple val(id), path("${id}")
         
@@ -64,8 +66,19 @@ process cnmf_prepare {
         -k ${params.cnmf.k.split(",").join(' ')} \
         --n-iter ${params.cnmf.n_iter} \
         --seed ${params.cnmf.seed} \
-        --numgenes ${params.cnmf.n_variable}
+        --numgenes ${params.cnmf.n_variable}\
         """
+        
+        // Add the TPM matrix/h5ad to calculate the gene scores
+        if (tpm.getFileName().toString() != "NO_TPM") {
+            cmd += " --tpm $tpm"
+        } 
+        
+        // Add the variable genes, if providing TPM this must also be provided
+        if (hvg.getFileName().toString() != "NO_HVG") {
+            cmd += " --genes-file $hvg"
+        } 
+        cmd
     
 }
 

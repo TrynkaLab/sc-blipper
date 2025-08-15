@@ -1,5 +1,49 @@
 #!/usr/bin/env nextlflow
 
+process preprocess_matrix {
+    label params.enrich.label
+    scratch params.rn_scratch
+    
+    container params.enrich.container
+    conda params.enrich.conda
+    
+    publishDir "$params.rn_publish_dir/${prefix}/${id}/processed", mode: 'symlink'
+
+    input:
+        val(prefix)
+        tuple val(id), file(path), val(transpose), file(id_linker), file(universe)
+    output:
+        tuple val(id), file("${id}_processed_matrix.tsv"), emit: matrix
+        path("${id}_processed_matrix.log", emit: log )
+    script:
+    cmd =
+    """
+    table_proccessor.py \
+    --input ${path} \
+    --output ${id}_processed_matrix.tsv\
+    """
+    
+    if (transpose) { 
+        cmd += " --transpose"
+        if (universe.getFileName().toString() != "NO_UNIVERSE") { 
+            cmd += " --col-file ${universe}"
+        }  
+        if (id_linker.getFileName().toString() != "NO_MAPPING") { 
+            cmd += " --update-cols ${id_linker}"
+        }
+    } else {
+        if (universe.getFileName().toString() != "NO_UNIVERSE") { 
+            cmd += " --row-file ${universe}"
+        }  
+        if (id_linker.getFileName().toString() != "NO_MAPPING") { 
+            cmd += " --update-rows ${id_linker}"
+        }
+    }    
+    
+    cmd
+}
+
+
 process gsea {
     label params.enrich.label
     scratch params.rn_scratch
@@ -124,7 +168,7 @@ process decoupler {
     """
     run_decoupler.r \
     --output_prefix ${id} \
-    --matrix ${file} \
+    --matrix ${file}\
     """
     
     if (transpose) {
@@ -132,7 +176,7 @@ process decoupler {
     }
     
     if (mapping_file.getFileName().toString() != "NO_MAPPING") {
-        cmd += " --gene_to_ensembl ${mapping_file}"
+        cmd += " --id_linker ${mapping_file}"
     }
     
     if (params.enrich.omnipath_cache_dir != null) {

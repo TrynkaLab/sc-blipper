@@ -96,10 +96,12 @@ option_list <- list(
               type = "character", help = "Prefix for output files."),
   make_option(c("-t", "--transpose"),
               type = "logical", default = FALSE,
-              help = "Whether to transpose the matrix before processing. Default: FALSE."),
+              help = "Whether to transpose the matrix before processing so genes are on the rows. Default: FALSE."),
   make_option(c("-u", "--universe"),
               type = "character", default = NA,
-              help = "Optional gene universe file (one gene per line). Defaults to all genes in the matrix.")
+              help = "Optional gene universe file (one gene per line). Defaults to all genes in the matrix."),
+  make_option(c("--update_rows"),
+              type = "character", help = "Path to file with 'old' 'new' ids. Aplied after transpose", default=NULL)
 )
 
 # Parse options
@@ -113,19 +115,33 @@ if (any(is.null(opt$matrix), is.null(opt$gmt), is.null(opt$output_prefix))) {
 }
 
 # Load numeric matrix (genes in rows, columns are samples or contrasts)
-mat           <- as.matrix(fread(opt$matrix, data.table=FALSE))
+mat           <- fread(opt$matrix, data.table=FALSE, header=T)
 rownames(mat) <- mat[,1]
 mat           <- mat[,-1]
+mat           <- as.matrix(mat)
+
+if (!class(mat[1,1]) %in% c("numeric", "integer")) {
+  stop("[ERROR] Input matrix is not numeric\n")
+  q(save=FALSE, status=1)
+}
 
 # Transpose if requested
 if (opt$transpose) {
   mat <- t(mat)
 }
 
+if (!is.null(opt$update_rows)) {
+  mapping           <- read.table(mapping_file, header=FALSE, sep="\t", stringsAsFactors=FALSE)
+  colnames(mapping) <- c("old", "new")
+  gene_replacement  <- setNames(mapping$new, mapping$old)
+  rownames(mat)     <- gene_replacement[rownames(mat)]
+}
+
 # Determine gene universe
 if (!is.na(opt$universe)) {
   gene_universe <- scan(opt$universe, what = character())
   gene_universe <- intersect(rownames(mat), gene_universe)
+  cat("Universe-matrix overlap of ", length(gene_universe), "\n")
 } else {
   gene_universe <- rownames(mat)
 }
@@ -140,6 +156,7 @@ for (gmt_file in gmt_files) {
   gmt_name <- gsub(".symbols.gmt$|.gmt$|.ensembl.gmt$", "", basename(gmt_file))
   
   for (col_name in colnames(mat)) {
+    cat("debug - ", gmt_file, " - ", col_name, "\n")
     ranks <- mat[, col_name]
     names(ranks) <- rownames(mat)
     ranks <- ranks[intersect(names(ranks), gene_universe)]
@@ -173,6 +190,6 @@ res.top       <- top_x_per_group(mat=res.sig,group_col="group", value_col="pval"
 out_file            <- paste0(opt$output_prefix, "_fgsea_results_top5.tsv")
 write.table(res.top, out_file, sep="\t", quote=F, row.names=F)
 
-pdf(width=(5+(1*length(unique(res.top$condition)))), height=(3 + (nrow(res.top)*0.1)), file=paste0(opt$output_prefix, "_fgsea_results_top5.pdf"))
+pdf(width=(5+(0.5*length(unique(res.top$condition)))), height=(3 + (nrow(res.top)*0.1)), file=paste0(opt$output_prefix, "_fgsea_results_top5.pdf"))
 dotplot(res.top)
 dev.off()
