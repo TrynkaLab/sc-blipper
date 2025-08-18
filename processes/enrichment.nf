@@ -243,11 +243,17 @@ process concat_enrichment_results {
     
     cmd =
     """
-    zcat ${files[0]} | head -n1 > ${id}_merged.tmp
-    
-    for f in ${files};
-    do
-        zcat "\$f" | tail -n +2 >> ${id}_merged.tmp
+    # Extract header from the first file and prepend 'filename' as the first column
+    zcat "${files[0]}" | head -n1 | awk '{print "filename\t"\$0}' > "${id}_merged.tmp"
+
+    for f in ${files}; do
+        # Get filename without any extensions
+        filename=\$(basename "\$f")
+        # Strip all extensions (remove everything after the first dot)
+        filename="\${filename%%.*}"
+        
+        # Add filename as first column, skip header line
+        zcat "\$f" | tail -n +2 | awk -v fname="\$filename" '{print fname"\t"\$0}' >> "${id}_merged.tmp"
     done
     
     """
@@ -263,7 +269,8 @@ process concat_enrichment_results {
     # Cleanup
     rm ${id}_merged.tmp
     
-    cat ${id}_merged.tsv | awk -F'\t' 'NR==1 || \$10 < 0.05' > ${id}_merged_nominal.tsv
+    colnum=$(head -1 ${id}_merged.tsv | tr '\t' '\n' | grep -n "^padj_test\$" | cut -d: -f1)
+    cat ${id}_merged.tsv | awk -v c=\$colnum -F'\t' 'NR==1 || \$c < 0.05' > ${id}_merged_nominal.tsv
     
     gzip -f ${id}_merged.tsv
     """

@@ -201,7 +201,6 @@ workflow cnmf {
         .collect()
         .map{ list -> ["${params.rn_runname}", list]}
         
-        //merge_in.view()
         concat_enrichment_results_main("cnmf/consensus/", merge_in, annot_file)
 
         // Per k value
@@ -209,8 +208,5 @@ workflow cnmf {
         .mix(gsea_out.std, ora_out.std, decoupler_out.std, magma_out_per_k.std)
         .groupTuple(by:0)
         
-        //merge_in.view()
         concat_enrichment_results_per_k("cnmf/consensus/${params.rn_runname}", merge_in_per_k, annot_file)
-
-
 }

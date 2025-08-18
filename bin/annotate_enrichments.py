@@ -20,7 +20,9 @@ def merge_with_conditions(main_tsv, output_tsv, mapping_tsv=None):
     if "pvalue" not in df_main.columns:
         raise ValueError("Input TSV must contain a 'pvalue' column for correction")
     
-
+    if "test" not in df_main.columns:
+        raise ValueError("Input TSV must contain a 'test' column for correction")
+    
     # ----------------------------------------------------------------------
     # Perform Benjamini-Hochberg correction for False Discovery Rate
     # multipletests returns four things; we only need the corrected p-values here
@@ -34,21 +36,26 @@ def merge_with_conditions(main_tsv, output_tsv, mapping_tsv=None):
 
     # Assign NaN padj_global to rows with missing pvalue
     df_na["padj_global"] = pd.NA
-    
+    df_na["padj_group"] = pd.NA
+    df_na["padj_test"] = pd.NA
+
     # ----------------------------------------------------------------------
     # Perform per test FDR correction
     # Prepare a column for adjusted p-values
+
+    if "filename" in df_main.columns:
+        df_valid["padj_group"] =  df_valid["test"].astype(str) + ";" + df_valid["filename"].astype(str)
+    else:
+        df_valid["padj_group"] =  df_valid["test"]
+
     df_valid["padj_test"] = pd.NA
 
     # Perform BH correction within each 'test' group separately
-    for test_val in df_valid['test'].unique():
-        mask = df_valid['test'] == test_val
+    for test_val in df_valid['padj_group'].unique():
+        mask = df_valid['padj_group'] == test_val
         pvals = df_valid.loc[mask, "pvalue"]
         _, padj, _, _ = multipletests(pvals, method="fdr_bh")
         df_valid.loc[mask, "padj_test"] = padj
-
-    # Assign NaN padj_global to rows with missing pvalue
-    df_na["padj_test"] = pd.NA
     
     # ----------------------------------------------------------------------
     # Recombine and restore original order by index
