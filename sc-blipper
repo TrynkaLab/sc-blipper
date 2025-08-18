@@ -141,10 +141,10 @@ if [ $SUBMIT -eq 0 ]; then
 else
     CMD="bsub -n 1 \
     -G teamtrynka \
-    -M 8000 \
+    -M 4000 \
     -q normal \
     -W 12:00 \
-    -R 'span[hosts=1] select[mem>8000] rusage[mem=8000]' \
+    -R 'span[hosts=1] select[mem>4000] rusage[mem=4000]' \
     -o logs/${prefix}/${WORKFLOW}-%J.out \
     -e logs/${prefix}/${WORKFLOW}-%J.err \
     $CMD"

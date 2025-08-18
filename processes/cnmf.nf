@@ -4,8 +4,8 @@ process cnmf_pre_process {
     label params.cnmf.label
     scratch params.rn_scratch
     
-    container params.cnmf.container
-    conda params.cnmf.conda
+    container params.rn_container
+    conda params.rn_conda
 
     publishDir "$params.rn_publish_dir/h5ad/cnmf", mode: 'symlink'
     
@@ -43,8 +43,8 @@ process cnmf_prepare {
     label params.cnmf.label
     scratch params.rn_scratch
     
-    container params.cnmf.container
-    conda params.cnmf.conda
+    container params.rn_container
+    conda params.rn_conda
 
     // This doesn't really need to be published
     //publishDir "$params.rn_publish_dir/cnmf/prepare/", mode: 'symlink'
@@ -86,8 +86,8 @@ process cnmf_factorize {
     label params.cnmf.label
     scratch params.rn_scratch
     
-    container params.cnmf.container
-    conda params.cnmf.conda
+    container params.rn_container
+    conda params.rn_conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
     //publishDir "$params.rn_publish_dir/cnmf/${id}/factorize", mode: 'symlink'
     
@@ -124,8 +124,8 @@ process cnmf_combine {
     label params.cnmf.label
     scratch params.rn_scratch
     
-    container params.cnmf.container
-    conda params.cnmf.conda
+    container params.rn_container
+    conda params.rn_conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
     //publishDir "$params.rn_publish_dir/cnmf/${id}/combine", mode: 'symlink'
     
@@ -162,8 +162,8 @@ process cnmf_kselection {
     label params.cnmf.label
     scratch params.rn_scratch
     
-    container params.cnmf.container
-    conda params.cnmf.conda
+    container params.rn_container
+    conda params.rn_conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
     publishDir "$params.rn_publish_dir/cnmf/consensus", mode: 'symlink'
     
@@ -200,8 +200,8 @@ process cnmf_consensus {
     label params.cnmf.label
     scratch params.rn_scratch
     
-    container params.cnmf.container
-    conda params.cnmf.conda
+    container params.rn_container
+    conda params.rn_conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
     publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_${k}", mode: 'symlink', saveAs: { filepath ->
         // filepath is a Path object, convert to string

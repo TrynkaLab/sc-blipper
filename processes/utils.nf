@@ -4,8 +4,8 @@ process fetch_gene_id_reference {
     label "tiny"
     scratch params.rn_scratch
     
-    container params.convert.container
-    conda params.convert.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/reference/ensembl", mode: 'copy'
     

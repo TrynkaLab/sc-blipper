@@ -4,8 +4,8 @@
 process ensembl_to_magma_geneloc {
     label "tiny"
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/reference/magma", mode: 'symlink'
     
@@ -65,8 +65,8 @@ process ensembl_to_magma_geneloc {
 process perpare_sumstats {
     label "tiny"
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/reference/magma/sumstats", mode: 'symlink'
     
@@ -80,12 +80,11 @@ process perpare_sumstats {
     """    
 }
 
-
 process magma_annotate {
     label "tiny"
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/reference/magma", mode: 'symlink'
     
@@ -107,8 +106,8 @@ process magma_annotate {
 process magma_prepare {
     label params.magma.label
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
     //publishDir "$params.rn_publish_dir/magma/per_trait/${name}", mode: 'symlink'
     
@@ -131,8 +130,8 @@ process magma_prepare {
 process magma_merge {
     label params.magma.label
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/reference/magma/gene_scores/${name}", mode: 'symlink'
         
@@ -156,8 +155,8 @@ process magma_merge {
 process magma_enrich {
     label params.magma.label
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/magma/per_trait/${trait}/enrich", mode: 'symlink'
         
@@ -180,8 +179,8 @@ process magma_enrich {
 process magma_assoc {
     label params.magma.label
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/magma/per_trait/${trait}/assoc", mode: 'symlink'
         
@@ -235,20 +234,29 @@ process magma_assoc {
 process magma_concat {
     label params.magma.label
     
-    container params.magma.container
-    conda params.magma.conda
+    container params.rn_container
+    conda params.rn_conda
     
-    publishDir "$params.rn_publish_dir/${prefix}/${name}/enrichments", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/${prefix}/${id}/enrichments", mode: 'symlink'
         
     input:
         val(prefix)
-        tuple val(name), path(files)
+        tuple val(id), path(files)
     output:
-        path("${name}_merged_magma_results.tsv", emit: out)
-        
+        path("${id}_merged_magma_results.tsv.gz", emit: out)
+        tuple val(id), path("${id}_merged_magma_results.enrich.gz"), emit: std
+
     script:
     """
-    concat_magma_output.py ${name}_merged_magma_results.tsv ${files}
+    concat_magma_output.py ${id}_merged_magma_results.tsv ${files}
+    
+    # Convert to standard format and zip
+    awk -v OFS='\t' 'BEGIN {print "test","database","condition","trait","effect_size","error","effect_size_norm","pvalue"}' > ${id}_merged_magma_results.enrich
+    cat ${id}_merged_magma_results.tsv | tail -n +2 | awk -v OFS='\t' '{print "MAGMA","gwas",\$1,\$9,\$4,\$6,\$5,\$7}' >> ${id}_merged_magma_results.enrich
+    
+    # Zip
+    gzip ${id}_merged_magma_results.tsv
+    gzip ${id}_merged_magma_results.enrich
     """
 }
 

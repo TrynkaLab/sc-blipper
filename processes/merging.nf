@@ -4,8 +4,8 @@ process merge_h5ad {
     label params.merge.label
     scratch params.rn_scratch
     
-    container params.merge.container
-    conda params.merge.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/h5ad/merged", mode: 'symlink'
     

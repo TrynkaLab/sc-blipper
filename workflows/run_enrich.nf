@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { gsea; ora; decoupler; preprocess_matrix } from "../processes/enrichment.nf"
+include { gsea; ora; decoupler; preprocess_matrix; concat_enrichment_results } from "../processes/enrichment.nf"
 include { magma_assoc; magma_concat } from "../processes/magma.nf"
 
 // Subworkflows
@@ -19,8 +19,8 @@ workflow enrich {
         
         if (params.rn_runname == null) {
             throw new Exception("--rn_runname must be supplied")
-        }    
-        
+        } 
+                
         //------------------------------------------------------------
         // Id linking and ensembl reference
         fetch_id_linker(params.rn_ensembl_version, params.convert)
@@ -72,8 +72,10 @@ workflow enrich {
                 gmt_files,
                 universe,
                 false)             
+        } else {
+            gsea_out = Channel.empty()
         }
-
+        
         //----------------------------------------------------------------------------------
         // Run ORA
         if (params.enrich.run_gsea) {
@@ -85,6 +87,8 @@ workflow enrich {
                 params.enrich.absolute,
                 params.enrich.threshold,
                 params.enrich.use_top)
+        } else {
+            ora_out = Channel.empty()
         }
         
         //----------------------------------------------------------------------------------
@@ -98,6 +102,8 @@ workflow enrich {
                 // This assumes you have converted to gene symbols
                 decoupler_out = decoupler("enrich/", input_matrix, false, file("NO_MAPPING"))
             }
+        } else {
+            decoupler_out = Channel.empty()
         }
         
         //----------------------------------------------------------------------------------
@@ -113,8 +119,29 @@ workflow enrich {
          
             // Concat the results in a single table
             concat_in = magma_assoc_out.out.collect().map{ list -> [params.rn_runname, list]}
-            magma_concat("enrich/", concat_in)
-        
+            magma_out = magma_concat("enrich", concat_in)
+        } else {
+            magma_out = Channel.empty()
         }
+        
+        //----------------------------------------------------------------------------------
+        // Merge all the output files and calculate FDR, optionally annotate
+        if (params.enrich.annotate != null) {
+            annot_file = Channel.value(file(params.enrich.annotate))
+        } else {
+            annot_file = Channel.value(file("NO_ANNOT"))
+        }
+        
+        merge_in = Channel.empty()
+        .mix(gsea_out.std, ora_out.std, decoupler_out.std, magma_out.std)
+        .groupTuple(by:0)
+        
+        //merge_in.view()
+        concat_enrichment_results("enrich", merge_in, annot_file)
+        
+        
+        
+        
+        
     
 }

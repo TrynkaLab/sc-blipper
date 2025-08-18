@@ -5,8 +5,8 @@ process seurat_to_h5ad {
     label params.convert.label
     scratch params.rn_scratch
     
-    container params.convert.container
-    conda params.convert.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/h5ad/per_batch", mode: 'symlink'
     
@@ -31,8 +31,8 @@ process link_h5ad {
     label params.convert.label
     scratch params.rn_scratch
     
-    container params.convert.container
-    conda params.convert.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/h5ad/per_batch", mode: 'symlink'
     

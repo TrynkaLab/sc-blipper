@@ -6,6 +6,8 @@ include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
 include { magma_concat as magma_concat_per_k } from "../processes/magma.nf"
+include { concat_enrichment_results as concat_enrichment_results_main } from "../processes/enrichment.nf"
+include { concat_enrichment_results as concat_enrichment_results_per_k } from "../processes/enrichment.nf"
 
 // Subworkflows
 include { fetch_id_linker } from "../subworkflows/id_linking.nf"
@@ -178,16 +180,37 @@ workflow cnmf {
             magma_assoc_out = magma_assoc(magma_assoc_in, true, universe, file("NO_MAPPING"))
                   
             // Concat the results in a single table
-            
-            concat_in = magma_assoc_out.out.collect().map{ list -> ["magma", list]}
-            magma_concat_main("", concat_in)
+            concat_in = magma_assoc_out.out.collect().map{ list -> ["${params.rn_runname}", list]}
+            magma_out = magma_concat_main("", concat_in)
             
             // Collect the results per k value as well
-            magma_concat_per_k("cnmf/consensus/${params.rn_runname}", magma_assoc_out.per_database.groupTuple())
+            magma_out_per_k = magma_concat_per_k("cnmf/consensus/${params.rn_runname}", magma_assoc_out.per_database.groupTuple())
 
         }
         
-        
+        //----------------------------------------------------------------------------------
         // Collect enrichment results for a summary
+        // Merge all the output files and calculate FDR, optionally annotate
+
+        // For cnmf workflow this doesn't make much sense to have, so default to not annotating
+        // If annotation is needed, run cnmf, then manually run_enrich later
+        annot_file = Channel.value(file("NO_ANNOT"))
+        
+        merge_in = Channel.empty()
+        .mix(gsea_out.std.map{row -> row[1]}, ora_out.std.map{row -> row[1]}, decoupler_out.std.map{row -> row[1]}, magma_out.std.map{row -> row[1]})
+        .collect()
+        .map{ list -> ["${params.rn_runname}", list]}
+        
+        //merge_in.view()
+        concat_enrichment_results_main("cnmf/consensus/", merge_in, annot_file)
+
+        // Per k value
+        merge_in_per_k = Channel.empty()
+        .mix(gsea_out.std, ora_out.std, decoupler_out.std, magma_out_per_k.std)
+        .groupTuple(by:0)
+        
+        //merge_in.view()
+        concat_enrichment_results_per_k("cnmf/consensus/${params.rn_runname}", merge_in_per_k, annot_file)
+
 
 }

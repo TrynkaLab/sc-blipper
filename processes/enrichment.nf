@@ -4,8 +4,8 @@ process preprocess_matrix {
     label params.enrich.label
     scratch params.rn_scratch
     
-    container params.enrich.container
-    conda params.enrich.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/${prefix}/${id}/processed", mode: 'symlink'
 
@@ -48,8 +48,8 @@ process gsea {
     label params.enrich.label
     scratch params.rn_scratch
     
-    container params.enrich.container
-    conda params.enrich.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/${prefix}/${id}/enrichments", mode: 'symlink'
     
@@ -63,6 +63,7 @@ process gsea {
     output:
         path("${id}_fgsea_results.tsv.gz")
         path("${id}_fgsea_results_top*.tsv", emit: top)
+        tuple val(id), path("${id}_fgsea_results.enrich.gz"), emit: std
         path("*.pdf", emit: plots)
     script:
     
@@ -82,8 +83,16 @@ process gsea {
         cmd += " --universe ${universe}"
     }
     
-    cmd += "\n\ngzip -f ${id}_fgsea_results.tsv"
+    // Convert to standard format and zip
+    cmd += 
+    """
+    awk -v OFS='\t' 'BEGIN {print "test","database","condition","trait","effect_size","error","effect_size_norm","pvalue"}' > ${id}_fgsea_results.enrich
+    cat ${id}_fgsea_results.tsv | tail -n +2 | awk -v OFS='\t' '{print "GSEA",\$11,\$9,\$1,\$5,\$4,\$6,\$2}' >> ${id}_fgsea_results.enrich
     
+    gzip -f ${id}_fgsea_results.tsv
+    gzip -f ${id}_fgsea_results.enrich
+    """
+        
     cmd
 }
 
@@ -92,8 +101,8 @@ process ora {
     label params.enrich.label
     scratch params.rn_scratch
     
-    container params.enrich.container
-    conda params.enrich.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/${prefix}/${id}/enrichments", mode: 'symlink'
     
@@ -110,6 +119,7 @@ process ora {
     output:
         path("${id}_ora_results.tsv.gz", emit: all)
         path("${id}_ora_results_top*.tsv", emit: top)
+        tuple val(id), path("${id}_ora_results.enrich.gz"), emit: std
         path("*.pdf", emit: plots)
     script:
     
@@ -137,8 +147,16 @@ process ora {
     if (use_top != null) {
         cmd += " --use_top ${use_top.join(',')}"
     }
+
+    // Convert to standard format and zip
+    cmd +=
+    """
+    awk -v OFS='\t' 'BEGIN {print "test","database","condition","trait","effect_size","error","effect_size_norm","pvalue"}' > ${id}_ora_results.enrich
+    cat ${id}_ora_results.tsv | tail -n +2 | awk -v OFS='\t' '{print "ORA",\$10,\$8,\$1,\$4,"NA","NA",\$2}' >> ${id}_ora_results.enrich
     
-    cmd += "\n\ngzip -f ${id}_ora_results.tsv"
+    gzip ${id}_ora_results.tsv
+    gzip ${id}_ora_results.enrich
+    """    
     
     cmd
 }
@@ -148,8 +166,8 @@ process decoupler {
     label params.enrich.label
     scratch params.rn_scratch
     
-    container params.enrich.container
-    conda params.enrich.conda
+    container params.rn_container
+    conda params.rn_conda
     
     publishDir "$params.rn_publish_dir/${prefix}/${id}/enrichments", mode: 'symlink'
     
@@ -161,6 +179,7 @@ process decoupler {
         path(mapping_file)
     output:
         path("${id}_*.tsv.gz", emit: decoupler)
+        tuple val(id), path("${id}_*.enrich.gz"), emit: std
         path("*.pdf", emit: plots)
     script:
     
@@ -183,7 +202,71 @@ process decoupler {
         cmd += " --cache_dir ${params.enrich.omnipath_cache_dir}"
     }    
     
-    cmd += "\n\ngzip -f ${id}_*.tsv"
+    // Convert to standard format and zip
+    cmd +=
+    """
+    # Collectri
+    awk -v OFS='\t' 'BEGIN {print "test","database","condition","trait","effect_size","error","effect_size_norm","pvalue"}' > ${id}_collectri.enrich
+    cat ${id}_collectri_activities.tsv | tail -n +2 | awk -v OFS='\t' '{print "TF_TARGET","collecttri",\$3,\$2,\$4,"NA","NA",\$5}' >> ${id}_collectri.enrich
     
+    # Progeny
+    awk -v OFS='\t' 'BEGIN {print "test","database","condition","trait","effect_size","error","effect_size_norm","pvalue"}' > ${id}_progeny.enrich
+    cat ${id}_progeny_activities.tsv | tail -n +2 | awk -v OFS='\t' '{print "ACTIVITY","progeny",\$3,\$2,\$4,"NA","NA",\$5}' >>  ${id}_progeny.enrich
+    
+    # Zip
+    gzip ${id}_progeny.enrich
+    gzip -f ${id}_*.tsv
+    """    
     cmd
+}
+
+
+process concat_enrichment_results {
+    label params.enrich.label
+    scratch params.rn_scratch
+    
+    container params.rn_container
+    conda params.rn_conda
+    
+    publishDir "$params.rn_publish_dir/${prefix}/${id}/final", mode: 'symlink'
+        
+    input:
+        // A couple of parameters are set as input values
+        val(prefix)
+        tuple val(id), path(files)
+        path(annot_file)
+    output:
+        path("${id}_merged.tsv.gz", emit: std)
+        path("${id}_merged_nominal.tsv", emit: std_nominal)
+
+    script:
+    
+    cmd =
+    """
+    zcat ${files[0]} | head -n1 > ${id}_merged.tmp
+    
+    for f in ${files};
+    do
+        zcat "\$f" | tail -n +2 >> ${id}_merged.tmp
+    done
+    
+    """
+    
+    if (annot_file.getFileName().toString() == "NO_ANNOT") {
+        cmd += "annotate_enrichments.py --input ${id}_merged.tmp --output ${id}_merged.tsv"
+    } else {
+        cmd += "annotate_enrichments.py --input ${id}_merged.tmp --output ${id}_merged.tsv --annot ${annot_file}"
+    }
+    
+    cmd +=
+    """
+    # Cleanup
+    rm ${id}_merged.tmp
+    
+    cat ${id}_merged.tsv | awk -F'\t' 'NR==1 || \$10 < 0.05' > ${id}_merged_nominal.tsv
+    
+    gzip -f ${id}_merged.tsv
+    """
+    cmd
+    
 }
