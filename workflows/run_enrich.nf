@@ -78,7 +78,7 @@ workflow enrich {
         
         //----------------------------------------------------------------------------------
         // Run ORA
-        if (params.enrich.run_gsea) {
+        if (params.enrich.run_ora) {
             ora_out = ora("enrich/",
                 input_matrix,
                 gmt_files,

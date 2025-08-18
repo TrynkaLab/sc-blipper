@@ -269,7 +269,7 @@ process concat_enrichment_results {
     # Cleanup
     rm ${id}_merged.tmp
     
-    colnum=$(head -1 ${id}_merged.tsv | tr '\t' '\n' | grep -n "^padj_test\$" | cut -d: -f1)
+    colnum=\$(head -1 ${id}_merged.tsv | tr '\t' '\n' | grep -n "^padj_test\$" | cut -d: -f1)
     cat ${id}_merged.tsv | awk -v c=\$colnum -F'\t' 'NR==1 || \$c < 0.05' > ${id}_merged_nominal.tsv
     
     gzip -f ${id}_merged.tsv

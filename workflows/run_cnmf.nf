@@ -95,10 +95,16 @@ workflow cnmf {
 
         //----------------------------------------------------------------------------------
         // Run gene set enrichment
-        if (params.cnmf.run_enrichment && params.enrich.gmt_files != null) {
+        if (params.cnmf.run_enrichment) {
             
             // Channel with gmt files
-            gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
+            if (params.enrich.gmt_files != null) {
+                gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
+            } else {
+                if (params.cnmf.run_gsea || params.cnmf.run_ora) {
+                    throw new Exception('No enrich.gmt files specified, but cnmf.run_gsea and or cnmf.run_ora is true')
+                }
+            }
 
             // Universe channel
             if (params.enrich.universe) {
@@ -122,91 +128,109 @@ workflow cnmf {
                 gsea_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
             }
 
+            //----------------------------------------------------------------------------------
             // Run GSEA
-            gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
-                            gsea_in,
-                            gmt_files,
-                            universe,
-                            true)
-                            
+            if (params.cnmf.run_gsea) {
+                gsea_out = gsea("cnmf/consensus/${params.rn_runname}",
+                    gsea_in,
+                    gmt_files,
+                    universe,
+                    true)
+            } else {
+                gsea_out = Channel.empty()
+            }
+            
+            //----------------------------------------------------------------------------------
             // Run ORA
-            ora_out = ora("cnmf/consensus/${params.rn_runname}",
-                gsea_in,
-                gmt_files,
-                universe,
-                true,
-                false,
-                0,
-                params.enrich.use_top)
-        }
-        
-        //----------------------------------------------------------------------------------
-        // Run decoupler (Progeny + collecTRI)
-        if (params.cnmf.run_decoupler) {
-            
-            if (params.cnmf.k_ignore != null) {
-                decoupler_in = cnmf_out.spectra_score.filter { tuple ->
-                    def (k, path) = tuple
-                    !(k in params.cnmf.k_ignore.split(','))
-                }.map{i -> tuple("k_"+i[0], i[1])}
+            if (params.cnmf.run_ora) {
+                ora_out = ora("cnmf/consensus/${params.rn_runname}",
+                    gsea_in,
+                    gmt_files,
+                    universe,
+                    true,
+                    false,
+                    0,
+                    params.enrich.use_top)   
             } else {
-                decoupler_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
+                ora_out = Channel.empty()
             }
-            is_ensembl = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)          
-            if (is_ensembl) {
-                // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
-                decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, id_linker_inv) 
-            } else {
-                // This assumes you have converted to gene symbols
-                decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
-            }
-        }
-        
-        //----------------------------------------------------------------------------------
-        // Run magma
-        if (params.cnmf.run_magma) {
-            
-            magma_base(params.magma, params.convert, params.rn_ensembl_version, ensembl_reference)
-            
-            // Magma association with cnmf
-            magma_cnmf_in = cnmf_out.spectra_score.filter { tuple ->
-                    def (k, path) = tuple
-                    !(k in params.cnmf.k_ignore.split(','))
-                }.map{i -> tuple("k_"+i[0], i[1])}
+
+            //----------------------------------------------------------------------------------
+            // Run decoupler (Progeny + collecTRI)
+            if (params.cnmf.run_decoupler) {
                 
-            magma_assoc_in = magma_base.out.raw.combine(magma_cnmf_in)
+                if (params.cnmf.k_ignore != null) {
+                    decoupler_in = cnmf_out.spectra_score.filter { tuple ->
+                        def (k, path) = tuple
+                        !(k in params.cnmf.k_ignore.split(','))
+                    }.map{i -> tuple("k_"+i[0], i[1])}
+                } else {
+                    decoupler_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
+                }
+                is_ensembl = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)          
+                if (is_ensembl) {
+                    // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
+                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, id_linker_inv) 
+                } else {
+                    // This assumes you have converted to gene symbols
+                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
+                }
+            } else {
+                decoupler_out = Channel.empty()
+            }
+
             
-            // Run regression based magma
-            magma_assoc_out = magma_assoc(magma_assoc_in, true, universe, file("NO_MAPPING"))
-                  
-            // Concat the results in a single table
-            concat_in = magma_assoc_out.out.collect().map{ list -> ["${params.rn_runname}", list]}
-            magma_out = magma_concat_main("", concat_in)
+            //----------------------------------------------------------------------------------
+            // Run magma
+            if (params.cnmf.run_magma) {
+                
+                magma_base(params.magma, params.convert, params.rn_ensembl_version, ensembl_reference)
+                
+                // Magma association with cnmf
+                magma_cnmf_in = cnmf_out.spectra_score.filter { tuple ->
+                        def (k, path) = tuple
+                        !(k in params.cnmf.k_ignore.split(','))
+                    }.map{i -> tuple("k_"+i[0], i[1])}
+                    
+                magma_assoc_in = magma_base.out.raw.combine(magma_cnmf_in)
+                
+                // Run regression based magma
+                magma_assoc_out = magma_assoc(magma_assoc_in, true, universe, file("NO_MAPPING"))
+                    
+                // Concat the results in a single table
+                concat_in = magma_assoc_out.out.collect().map{ list -> ["${params.rn_runname}", list]}
+                magma_out = magma_concat_main("", concat_in)
+                
+                // Collect the results per k value as well
+                magma_out_per_k = magma_concat_per_k("cnmf/consensus/${params.rn_runname}", magma_assoc_out.per_database.groupTuple())
+
+            } else {
+                magma_out = Channel.empty()
+                magma_out_per_k = Channel.empty()
+            }
+
+            //----------------------------------------------------------------------------------
+            // Collect enrichment results for a summary
+            // Merge all the output files and calculate FDR, optionally annotate
+
+            // For cnmf workflow this doesn't make much sense to have, so default to not annotating
+            // If annotation is needed, run cnmf, then manually run_enrich later
+            annot_file = Channel.value(file("NO_ANNOT"))
             
-            // Collect the results per k value as well
-            magma_out_per_k = magma_concat_per_k("cnmf/consensus/${params.rn_runname}", magma_assoc_out.per_database.groupTuple())
+            merge_in = Channel.empty()
+            .mix(gsea_out.std.map{row -> row[1]}, ora_out.std.map{row -> row[1]}, decoupler_out.std.map{row -> row[1]}, magma_out.std.map{row -> row[1]})
+            .collect()
+            .map{ list -> ["${params.rn_runname}", list]}
+            
+            concat_enrichment_results_main("cnmf/consensus/", merge_in, annot_file)
 
-        }
-        
-        //----------------------------------------------------------------------------------
-        // Collect enrichment results for a summary
-        // Merge all the output files and calculate FDR, optionally annotate
+            // Per k value
+            merge_in_per_k = Channel.empty()
+            .mix(gsea_out.std, ora_out.std, decoupler_out.std, magma_out_per_k.std)
+            .groupTuple(by:0)
+            
+            concat_enrichment_results_per_k("cnmf/consensus/${params.rn_runname}", merge_in_per_k, annot_file)
 
-        // For cnmf workflow this doesn't make much sense to have, so default to not annotating
-        // If annotation is needed, run cnmf, then manually run_enrich later
-        annot_file = Channel.value(file("NO_ANNOT"))
-        
-        merge_in = Channel.empty()
-        .mix(gsea_out.std.map{row -> row[1]}, ora_out.std.map{row -> row[1]}, decoupler_out.std.map{row -> row[1]}, magma_out.std.map{row -> row[1]})
-        .collect()
-        .map{ list -> ["${params.rn_runname}", list]}
-        
-        concat_enrichment_results_main("cnmf/consensus/", merge_in, annot_file)
+        } 
 
-        // Per k value
-        merge_in_per_k = Channel.empty()
-        .mix(gsea_out.std, ora_out.std, decoupler_out.std, magma_out_per_k.std)
-        .groupTuple(by:0)
-        
-        concat_enrichment_results_per_k("cnmf/consensus/${params.rn_runname}", merge_in_per_k, annot_file)
 }
