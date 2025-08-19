@@ -27,8 +27,14 @@ workflow convert_and_merge {
             other: false
         }
         
+        if (params.convert.subset_genes != null){
+            subset_file=Channel.value(file(params.convert.subset_genes))
+        } else {
+            subset_file=Channel.value(file("NO_SUBSET"))
+        }
+        
         // Converts seurat files to h5ad
-        convert_out_a = seurat_to_h5ad(manifest_split.seu, id_linker).h5ad
+        convert_out_a = seurat_to_h5ad(manifest_split.seu, id_linker, subset_file).h5ad
 
         // Converts just symplink h5ad the files so they are in the ouput
         // In case conversion is needed, do that here

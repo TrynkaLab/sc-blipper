@@ -152,7 +152,7 @@ process ora {
     cmd +=
     """
     awk -v OFS='\t' 'BEGIN {print "test","database","condition","trait","effect_size","error","effect_size_norm","pvalue"}' > ${id}_ora_results.enrich
-    cat ${id}_ora_results.tsv | tail -n +2 | awk -v OFS='\t' '{print "ORA",\$10,\$8,\$1,\$4,"NA","NA",\$2}' >> ${id}_ora_results.enrich
+    cat ${id}_ora_results.tsv | tail -n +2 | awk -v OFS='\t' '{print "ORA;"\$9,\$10,\$8,\$1,\$4,"NA","NA",\$2}' >> ${id}_ora_results.enrich
     
     gzip ${id}_ora_results.tsv
     gzip ${id}_ora_results.enrich
@@ -214,6 +214,7 @@ process decoupler {
     cat ${id}_progeny_activities.tsv | tail -n +2 | awk -v OFS='\t' '{print "ACTIVITY","progeny",\$3,\$2,\$4,"NA","NA",\$5}' >>  ${id}_progeny.enrich
     
     # Zip
+    gzip ${id}_collectri.enrich
     gzip ${id}_progeny.enrich
     gzip -f ${id}_*.tsv
     """    

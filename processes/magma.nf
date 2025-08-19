@@ -158,7 +158,7 @@ process magma_enrich {
     container params.rn_container
     conda params.rn_conda
     
-    publishDir "$params.rn_publish_dir/magma/per_trait/${trait}/enrich", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/${trait}/enrich", mode: 'symlink'
         
     input:
         tuple val(trait), file(magma_raw), val(database), file(geneset)

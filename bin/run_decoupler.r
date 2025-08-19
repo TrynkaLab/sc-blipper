@@ -241,8 +241,8 @@ activity.matrix <- activities %>%
               values_from = 'score') %>%
   column_to_rownames('source')
 
-write.table(activities, file=paste0(opt$output_prefix, "_collectri_activities.tsv"), quote=F, row.names=T, sep="\t")
-write.table(activity.matrix, file=paste0(opt$output_prefix, "_collectri_activity_matrix.tsv"), quote=F, row.names=T)
+write.table(activities, file=paste0(opt$output_prefix, "_collectri_activities.tsv"), quote=F, row.names=F, sep="\t")
+write.table(activity.matrix, file=paste0(opt$output_prefix, "_collectri_activity_matrix.tsv"), quote=F, row.names=F)
 
 #-------------------------------------------------------------------------------
 # Visualization

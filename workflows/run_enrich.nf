@@ -132,11 +132,16 @@ workflow enrich {
             annot_file = Channel.value(file("NO_ANNOT"))
         }
         
+        // Create one channel with all the files to merge. Progeny outputs multiple files, so first 
+        // make each file into its own [id, file] tuple
         merge_in = Channel.empty()
-        .mix(gsea_out.std, ora_out.std, decoupler_out.std, magma_out.std)
+        .mix(gsea_out.std,
+             ora_out.std,
+             decoupler_out.std.flatMap { id, files -> files.collect { file -> tuple(id, file) }},
+             magma_out.std)
         .groupTuple(by:0)
-        
-        //merge_in.view()
+    
+       // merge_in.view()
         concat_enrichment_results("enrich", merge_in, annot_file)
         
         

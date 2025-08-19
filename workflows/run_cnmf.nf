@@ -218,7 +218,10 @@ workflow cnmf {
             annot_file = Channel.value(file("NO_ANNOT"))
             
             merge_in = Channel.empty()
-            .mix(gsea_out.std.map{row -> row[1]}, ora_out.std.map{row -> row[1]}, decoupler_out.std.map{row -> row[1]}, magma_out.std.map{row -> row[1]})
+            .mix(gsea_out.std.map{row -> row[1]},
+                 ora_out.std.map{row -> row[1]},
+                 decoupler_out.std.flatMap{row -> row[1]},
+                 magma_out.std.map{row -> row[1]})
             .collect()
             .map{ list -> ["${params.rn_runname}", list]}
             
@@ -226,7 +229,10 @@ workflow cnmf {
 
             // Per k value
             merge_in_per_k = Channel.empty()
-            .mix(gsea_out.std, ora_out.std, decoupler_out.std, magma_out_per_k.std)
+            .mix(gsea_out.std,
+                ora_out.std,
+                decoupler_out.std.flatMap { id, files -> files.collect { file -> tuple(id, file) }},
+                magma_out_per_k.std)
             .groupTuple(by:0)
             
             concat_enrichment_results_per_k("cnmf/consensus/${params.rn_runname}", merge_in_per_k, annot_file)
