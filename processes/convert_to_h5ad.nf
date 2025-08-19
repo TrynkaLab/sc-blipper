@@ -25,7 +25,7 @@ process seurat_to_h5ad {
             cmd = "seurat_to_h5ad.r -i ${file} -o ${id}.h5ad -m ${mapping_file} -u ${id}_unmapped_genes.txt"
         }
         
-        if (subset_file.getFileName.toString() != "NO_SUBSET") {
+        if (subset_file.getFileName().toString() != "NO_SUBSET") {
             cmd += " -f ${subset_file}"
         }
         cmd

@@ -8,6 +8,7 @@ workflow convert_and_merge {
         rn_manifest
         rn_runname
         id_linker
+        subset_genes
     main:
 
         //------------------------------------------------------------
@@ -27,8 +28,8 @@ workflow convert_and_merge {
             other: false
         }
         
-        if (params.convert.subset_genes != null){
-            subset_file=Channel.value(file(params.convert.subset_genes))
+        if (subset_genes != null){
+            subset_file=Channel.value(file(subset_genes))
         } else {
             subset_file=Channel.value(file("NO_SUBSET"))
         }

@@ -72,12 +72,16 @@ workflow magma_base {
             magma_write_manifest(magma_merge_out.raw.map{row -> row.join("\t") }.collect())
             
         } else {
+            magma_merge_out = [:]
+            
             // Using previous magma results from manifest
-            magma_merge_out = Channel.fromPath(magma.manifest_magma)
+            magma_merge_out.raw = Channel.fromPath(magma.manifest_magma)
                 .splitCsv(header:true, sep:"\t")
                 .map { row -> tuple(
                 row.name,
                 row.raw)}
+            magma_merge_out.logs = Channel.empty()
+            magma_merge_out.out = Channel.empty()
         }
     emit:
         raw=magma_merge_out.raw

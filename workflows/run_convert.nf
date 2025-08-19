@@ -19,6 +19,6 @@ workflow convert {
         ensembl_reference = fetch_id_linker.out.ensembl_reference
 
         //------------------------------------------------------------        
-        convert_and_merge(params.rn_manifest, params.rn_runname, id_linker)
+        convert_and_merge(params.rn_manifest, params.rn_runname, id_linker, params.convert.subset_genes)
                 
 }

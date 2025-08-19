@@ -31,11 +31,11 @@ workflow cnmf {
         if (params.convert.convert_gene_names) {
             converter = id_linker
         } else {
-            converter = Channel.value("NO_MAPPING")
+            converter = Channel.value(file("NO_MAPPING"))
         }   
         //------------------------------------------------------------ 
         // Merge seurat and H5 files
-        convert_and_merge(params.rn_manifest, params.rn_runname, converter)
+        convert_and_merge(params.rn_manifest, params.rn_runname, converter, params.convert.subset_genes)
         
         merge_out = convert_and_merge.out.merge_out
         
@@ -137,7 +137,8 @@ workflow cnmf {
                     universe,
                     true)
             } else {
-                gsea_out = Channel.empty()
+                gsea_out = [:]
+                gsea_out.std = Channel.empty()
             }
             
             //----------------------------------------------------------------------------------
@@ -152,7 +153,8 @@ workflow cnmf {
                     0,
                     params.enrich.use_top)   
             } else {
-                ora_out = Channel.empty()
+                ora_out = [:]
+                ora_out.std = Channel.empty()
             }
 
             //----------------------------------------------------------------------------------
@@ -176,7 +178,8 @@ workflow cnmf {
                     decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
                 }
             } else {
-                decoupler_out = Channel.empty()
+                decoupler_out = [:]
+                decoupler_out.std = Channel.empty()
             }
 
             
@@ -205,8 +208,10 @@ workflow cnmf {
                 magma_out_per_k = magma_concat_per_k("cnmf/consensus/${params.rn_runname}", magma_assoc_out.per_database.groupTuple())
 
             } else {
-                magma_out = Channel.empty()
-                magma_out_per_k = Channel.empty()
+                magma_out = [:]
+                magma_out.std = Channel.empty()
+                magma_out_per_k = [:]
+                magma_out_per_k.std = Channel.empty()
             }
 
             //----------------------------------------------------------------------------------

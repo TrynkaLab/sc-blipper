@@ -55,7 +55,7 @@ workflow enrich {
         if (params.convert.convert_gene_names) {
             converter = id_linker
         } else {
-            converter = Channel.value("NO_MAPPING")
+            converter = Channel.value(file("NO_MAPPING"))
         }
         
         prep_in = Channel.value(tuple(params.rn_runname, params.enrich.input_matrix, params.enrich.transpose))
@@ -73,7 +73,8 @@ workflow enrich {
                 universe,
                 false)             
         } else {
-            gsea_out = Channel.empty()
+            gsea_out = [:]
+            gsea_out.std = Channel.empty()
         }
         
         //----------------------------------------------------------------------------------
@@ -88,7 +89,8 @@ workflow enrich {
                 params.enrich.threshold,
                 params.enrich.use_top)
         } else {
-            ora_out = Channel.empty()
+            ora_out = [:]
+            ora_out.std = Channel.empty()
         }
         
         //----------------------------------------------------------------------------------
@@ -103,7 +105,8 @@ workflow enrich {
                 decoupler_out = decoupler("enrich/", input_matrix, false, file("NO_MAPPING"))
             }
         } else {
-            decoupler_out = Channel.empty()
+            decoupler_out = [:]
+            decoupler_out.std = Channel.empty()
         }
         
         //----------------------------------------------------------------------------------
@@ -121,7 +124,8 @@ workflow enrich {
             concat_in = magma_assoc_out.out.collect().map{ list -> [params.rn_runname, list]}
             magma_out = magma_concat("enrich", concat_in)
         } else {
-            magma_out = Channel.empty()
+            magma_out = [:]
+            magma_out.std = Channel.empty()
         }
         
         //----------------------------------------------------------------------------------
@@ -141,7 +145,7 @@ workflow enrich {
              magma_out.std)
         .groupTuple(by:0)
     
-       // merge_in.view()
+        // merge_in.view()
         concat_enrichment_results("enrich", merge_in, annot_file)
         
         
