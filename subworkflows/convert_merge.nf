@@ -38,7 +38,7 @@ workflow convert_and_merge {
 
         // Converts just symplink h5ad the files so they are in the ouput
         // In case conversion is needed, do that here
-        convert_out_b = link_h5ad(manifest_split.h5ad, id_linker).h5ad
+        convert_out_b = link_h5ad(manifest_split.h5ad, id_linker, subset_file).h5ad
 
         // Merge the channels, they should now contain all h5ad files
         convert_out = convert_out_a.concat(convert_out_b)
