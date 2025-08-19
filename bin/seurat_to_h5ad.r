@@ -56,7 +56,8 @@ filter_genes <- function(counts_mat, filter_file, gene_mapping=NULL) {
   }
   
   keep <- rownames(counts_mat) %in% filter_genes
-  return(counts_mat[keep, , drop=FALSE])
+  return(keep)
+  #return(counts_mat[keep, , drop=FALSE])
 }
 
 convert_seurat_to_h5ad_counts <- function(input_rds, output_h5ad, mapping_file=NULL, 
@@ -64,7 +65,7 @@ convert_seurat_to_h5ad_counts <- function(input_rds, output_h5ad, mapping_file=N
   seu        <- LoadSeuratRds(input_rds)
   cell_meta  <- seu@meta.data
   counts_mat <- Seurat::GetAssayData(seu, assay = DefaultAssay(seu), layer = "counts")
-  message("Read counts matrix of shape: ", dim(counts_mat))
+  message("Read counts matrix of shape: ", dim(counts_mat)[1], "x", dim(counts_mat)[2] )
   
   # Cleanup to save some memory
   rm(seu)
@@ -80,8 +81,11 @@ convert_seurat_to_h5ad_counts <- function(input_rds, output_h5ad, mapping_file=N
   }
 
   if (!is.null(filter_file)) {
-    counts_mat <- filter_genes(counts_mat, filter_file, gene_mapping)
-    message("Filtered counts down to: ", dim(counts_mat))
+    keep <- filter_genes(counts_mat, filter_file, gene_mapping)
+    
+    gene.ids.orig <- gene.ids.orig[keep]
+    counts_mat    <- counts_mat[keep,,drop=F]
+    message("Filtered counts down to: ", dim(counts_mat)[1], "x", dim(counts_mat)[2])
   }
 
   cell_meta <- convert_cols_to_string_or_number(cell_meta)
