@@ -10,3 +10,5 @@ include { cnmf } from './workflows/run_cnmf.nf'
 include { enrich } from './workflows/run_enrich.nf'
 
 include { convert } from './workflows/run_convert.nf'
+
+include { magma } from './workflows/run_magma.nf'

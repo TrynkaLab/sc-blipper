@@ -59,7 +59,7 @@ if [ -z "$1" ]; then
 fi
 
 WORKFLOW="$1"
-ALLOWED=("cnmf" "enrich" "convert")
+ALLOWED=("cnmf" "enrich" "convert" "magma")
 
 if [[ ! " ${ALLOWED[*]} " =~ " ${WORKFLOW} " ]]; then
     echo "❌ Error: Invalid workflow '$WORKFLOW'"

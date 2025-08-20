@@ -162,18 +162,26 @@ process magma_enrich {
         
     input:
         tuple val(trait), file(magma_raw), val(database), file(geneset)
-        
+        path(universe)
+        path(id_linker)
     output:
-        path("${database}.log", emit: log)
-        path("${database}.raw", emit: raw)
-        path("${database}.out", emit: out)
+        path("${trait}__${database}.gsa.out", emit: out)
+        path("${trait}__${database}.log", emit: logs)
+        tuple val("${database}"), path("${trait}__${database}.gsa.out"), emit: per_database
         
     script:
+    cmd=
     """
     magma --gene-results ${magma_raw} \
     --set-annot ${geneset} \
-    --out ${trait}_${database} \
+    --out ${trait}__${database} \
+    --settings abbreviate=0\
     """
+    
+    if (universe.getFileName().toString() != "NO_UNIVERSE") { 
+        cmd += " gene-include=${universe}"
+    }
+    
 }
 
 process magma_assoc {
@@ -222,6 +230,7 @@ process magma_assoc {
     """
     magma --gene-results ${magma_raw} \
     --gene-covar magma_prepared.tsv \
+    --settings abbreviate=0 \
     --out ${trait}__${database}
     
     # Cleanup
