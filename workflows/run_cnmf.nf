@@ -18,6 +18,11 @@ include { magma_base } from "../subworkflows/magma.nf"
 workflow cnmf {
     //TODO: make gene linker file ids unique
     main:
+        //------------------------------------------------------------
+        // Sanity check input
+        if (params.cnmf.n_workers >= (params.cnmf.n_iter * params.cnmf.k.split(",").size())) {
+            throw new Exception("Number of workers (cnmf.n_workers) cannot exceed number of cnmf runs (cnmf.n_iter * cnmf.k.size())")
+        }
 
         //------------------------------------------------------------
         // Id linking and ensembl reference
