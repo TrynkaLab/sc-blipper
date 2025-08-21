@@ -51,6 +51,23 @@ Alternatively, it is also fully possible to run the pipeline directly through ne
 But I will point to the nextflow documentation for setting this up
 
 
+# Installing (Sanger farm22)
+Add the following to your .bashrc
+```
+export $PATH="$PATH:/software/teamtrynka/installs/sc-blipper/"
+```
+
+Then 
+```
+source ~/.bashrc
+```
+And thats it!
+
+# Installing (other configurations)
+
+TBD
+
+
 # Note on gene ids
 The pipeline runs on either gene symbols if `convert.is_ensembl_id=false` or on ensembl id if `convert.is_ensembl_id=true`.
 You can convert between these two by manipulating these parameters, as well as the manifest.
