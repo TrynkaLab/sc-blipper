@@ -79,7 +79,7 @@ workflow magma_base {
                 .splitCsv(header:true, sep:"\t")
                 .map { row -> tuple(
                 row.name,
-                row.raw)}
+                file(row.raw))}
             magma_merge_out.logs = Channel.empty()
             magma_merge_out.out = Channel.empty()
         }

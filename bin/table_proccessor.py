@@ -84,7 +84,8 @@ def main():
     if args.col_file:
         col_names = set(read_list(args.col_file))
         log_print(f"Loaded {len(col_names)} col_names in set.")
-        keep_cols = [df.columns[0]] + [c for c in df.columns if c in col_names]
+        #keep_cols = [df.columns[0]] + [c for c in df.columns if c in col_names]
+        keep_cols = [c for c in df.columns if c in col_names]
         log_print(f"{len(keep_cols)} overlap")
         df = df.loc[:, keep_cols]
 
