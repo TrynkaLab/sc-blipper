@@ -17,6 +17,8 @@ r-optparse
 r-remotes
 r-ggplotify
 r-pheatmap
+r-ggraph
+r-igraph
 
 #biomaRt (was not in conda, installed manually)
 BiocManager::install("biomaRt")

@@ -261,7 +261,7 @@ process magma_concat {
     
     # Convert to standard format and zip
     awk -v OFS='\t' 'BEGIN {print "test","database","condition","trait","effect_size","error","effect_size_norm","pvalue"}' > ${id}_merged_magma_results.enrich
-    cat ${id}_merged_magma_results.tsv | tail -n +2 | awk -v OFS='\t' '{print "MAGMA","gwas",\$1,\$9,\$4,\$6,\$5,\$7}' >> ${id}_merged_magma_results.enrich
+    cat ${id}_merged_magma_results.tsv | tail -n +2 | awk -v OFS='\t' '{print "MAGMA",\$10,\$1,\$9,\$4,\$6,\$5,\$7}' >> ${id}_merged_magma_results.enrich
     
     # Zip
     gzip ${id}_merged_magma_results.tsv

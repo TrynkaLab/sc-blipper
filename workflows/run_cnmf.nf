@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus } from "../processes/cnmf.nf"
+include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
@@ -93,6 +93,22 @@ workflow cnmf {
         
         cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out)
         // This is the end of the cnmf processing
+        
+        if (params.cnmf.ktree_plot) {
+            // Suppose your initial channel is ch_out: tuple val(k), path(file)
+
+            // Collect all (k, file) pairs into a list
+            all_files = cnmf_out.spectra_score.collect()
+
+            // Map to the "k=fileName" strings and join with space
+            pairs_string = all_files.map { entry -> "${entry[0]}=${entry[1].getName()}" }.collect()
+
+            all_files.view()
+            pairs_string.view()
+            // Create a single emission channel for the next process with all files and the string
+            //cnmf_ktree(all_files.collect { it[1] }, pairs_string, params.rn_runname)
+        }
+        
 
         //--------------------------------------------------------
         // Optional post-proccessing of cnmf
@@ -207,7 +223,7 @@ workflow cnmf {
                     
                 // Concat the results in a single table
                 concat_in = magma_assoc_out.out.collect().map{ list -> ["${params.rn_runname}", list]}
-                magma_out = magma_concat_main("", concat_in)
+                magma_out = magma_concat_main("cnmf/consensus/", concat_in)
                 
                 // Collect the results per k value as well
                 magma_out_per_k = magma_concat_per_k("cnmf/consensus/${params.rn_runname}", magma_assoc_out.per_database.groupTuple())

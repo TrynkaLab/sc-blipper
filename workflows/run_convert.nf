@@ -3,6 +3,7 @@
 // Subworkflows
 include { fetch_id_linker } from "../subworkflows/id_linking.nf"
 include { convert_and_merge } from "../subworkflows/convert_merge.nf"
+include { cnmf_pre_process } from "../processes/cnmf.nf"
 
 // Main workflow
 workflow convert {
@@ -20,5 +21,10 @@ workflow convert {
 
         //------------------------------------------------------------        
         convert_and_merge(params.rn_manifest, params.rn_runname, id_linker, params.convert.subset_genes)
-                
+    
+        //------------------------------------------------------------
+        // Optionally correct batch effects using harmony
+        if (params.convert.harmony_vars != null) {
+            cnmf_pre_process(convert_and_merge.out.merge_out)
+        }
 }

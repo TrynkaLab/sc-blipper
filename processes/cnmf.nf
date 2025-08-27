@@ -20,8 +20,8 @@ process cnmf_pre_process {
     script:
         cmd = "run_preprocess.py -i ${file} -o ${id}"
         
-        if (params.cnmf.harmony_vars != null) {
-            cmd += " --harmony_vars ${params.cnmf.harmony_vars}"
+        if (params.convert.harmony_vars != null) {
+            cmd += " --harmony_vars ${params.convert.harmony_vars.split(',').join(' ')}"
         }
         
         if (params.cnmf.seed != null) {
@@ -171,7 +171,7 @@ process cnmf_kselection {
         tuple val(id), path(file, name: "tmp/*")
         path(merged, name: "merged/*")
     output:
-        path("${id}/${id}.k_selection*")
+        path("${id}/k_selection/${id}.k_selection*")
         
     script:
         cmd = 
@@ -247,6 +247,36 @@ process cnmf_consensus {
         
         # Zip the textfiles
         find ${id} -maxdepth 1 -type f -name "*.txt" ! -xtype l -exec gzip {} \\;
+        """
+    
+        cmd
+}
+
+
+process cnmf_ktree {
+    label params.cnmf.label
+    scratch params.rn_scratch
+    
+    container params.rn_container
+    conda params.rn_conda
+    // I dont think this needs to be publised long term, but for now its handy for debugging
+    publishDir "$params.rn_publish_dir/cnmf/consensus", mode: 'symlink'
+    
+    input:
+        path(files)
+        val(qry_string)
+        val(id)
+    output:
+        path("${id}/k_selection/${id}*.pdf", emit: plots)
+        path("${id}/k_selection/${id}*.tsv", emit: edge_list)
+    script:
+        cmd = 
+        """
+        plot_k_tree.r \
+        --qry "${qry_string} \
+        --threshold ${params.cnmf.ktree_threshold} \
+        --mode ${params.cnmf.ktree_mode} \
+        --output $id"
         """
     
         cmd
