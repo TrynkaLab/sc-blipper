@@ -165,13 +165,13 @@ process cnmf_kselection {
     container params.rn_container
     conda params.rn_conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
-    publishDir "$params.rn_publish_dir/cnmf/consensus", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_selection", mode: 'symlink'
     
     input:
         tuple val(id), path(file, name: "tmp/*")
         path(merged, name: "merged/*")
     output:
-        path("${id}/k_selection/${id}.k_selection*")
+        path("${id}.k_selection*")
         
     script:
         cmd = 
@@ -191,6 +191,9 @@ process cnmf_kselection {
         
         # K selection plot for cNMF
         cnmf k_selection_plot --output-dir ./ --name ${id}
+        
+        # Symlink for staging
+        ln -s ${id}/${id}.k_selection* ./
         """
     
         cmd
@@ -260,23 +263,23 @@ process cnmf_ktree {
     container params.rn_container
     conda params.rn_conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
-    publishDir "$params.rn_publish_dir/cnmf/consensus", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_selection/", mode: 'symlink'
     
     input:
         path(files)
         val(qry_string)
         val(id)
     output:
-        path("${id}/k_selection/${id}*.pdf", emit: plots)
-        path("${id}/k_selection/${id}*.tsv", emit: edge_list)
+        path("${id}*.pdf", emit: plots)
+        path("${id}*.tsv", emit: edge_list)
     script:
         cmd = 
         """
         plot_k_tree.r \
-        --qry "${qry_string} \
+        --qry "${qry_string}" \
         --threshold ${params.cnmf.ktree_threshold} \
         --mode ${params.cnmf.ktree_mode} \
-        --output $id"
+        --output $id
         """
     
         cmd

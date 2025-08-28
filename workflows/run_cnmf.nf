@@ -98,15 +98,16 @@ workflow cnmf {
             // Suppose your initial channel is ch_out: tuple val(k), path(file)
 
             // Collect all (k, file) pairs into a list
-            all_files = cnmf_out.spectra_score.collect()
+            all_files = cnmf_out.spectra_score.map{row -> row[1]}.collect()
 
             // Map to the "k=fileName" strings and join with space
-            pairs_string = all_files.map { entry -> "${entry[0]}=${entry[1].getName()}" }.collect()
+            pairs_string = cnmf_out.spectra_score
+            .flatMap { row -> "${row[0]}=${row[1].getName()}" }
+            .collect()
+            .map { list -> list.join(' ') }
 
-            all_files.view()
-            pairs_string.view()
             // Create a single emission channel for the next process with all files and the string
-            //cnmf_ktree(all_files.collect { it[1] }, pairs_string, params.rn_runname)
+            cnmf_ktree(all_files, pairs_string, params.rn_runname)
         }
         
 

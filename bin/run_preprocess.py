@@ -29,6 +29,11 @@ if __name__ == "__main__":
     # Read the anndata
     adata = ad.read_h5ad(args.input)
     
+    # Convert the anndata harmony vars to string
+    if args.harmony_vars is not None:
+        for var in args.harmony_vars:
+            adata.obs[var] = adata.obs[var].astype(str)
+    
     p = Preprocess(random_seed=args.seed)
     
     # Batch correct the data and save the corrected high-variance gene data to adata_c, and the TPM normalized data to adata_tpm 
