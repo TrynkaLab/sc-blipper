@@ -104,8 +104,8 @@ if [ -z "$CONFIG_FILE" ]; then
 fi
 
 # Check .nf extension
-if [[ ! "$CONFIG_FILE" =~ \.nf$ ]]; then
-    echo "❌ WARN: -c File '$CONFIG_FILE' must have .nf extension"
+if [[ ! "$CONFIG_FILE" =~ \.config$ ]]; then
+    echo "❌ WARN: -c File '$CONFIG_FILE' does not have have .config extension"
     #exit 1
 fi
 

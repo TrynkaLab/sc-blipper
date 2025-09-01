@@ -23,7 +23,7 @@ workflow cnmf {
         if (params.cnmf.n_workers >= (params.cnmf.n_iter * params.cnmf.k.split(",").size())) {
             throw new Exception("Number of workers (cnmf.n_workers) cannot exceed number of cnmf runs (cnmf.n_iter * cnmf.k.size())")
         }
-
+        
         //------------------------------------------------------------
         // Id linking and ensembl reference
         fetch_id_linker(params.rn_ensembl_version, params.convert)
@@ -83,20 +83,26 @@ workflow cnmf {
         // Combine the output   
         cnmf_combine_out = cnmf_combine(cnmf_prepared, cnmf_factorize_out)     
  
-        // Make the k selection plot
-        cnmf_kselection(cnmf_prepared, cnmf_combine_out)
-        
         // Make the consensus factorizations
         cnmf_consensus_in = cnmf_prepared
          .map { v -> (params.cnmf.k.split(",")).collect{ i -> tuple(*v, i) } }
          .flatMap()
         
-        cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out)
+        // Create consensus with or without h5ad
+        if (params.cnmf.save_h5ad) {
+            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, cnmf_in.map{row -> row[1]})
+        } else {
+            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
+        }
         // This is the end of the cnmf processing
         
+        // TODO: Wrap the below in : if(params.cnmf.k.split(",").size() >= 2)
+        // This is to enable running with a single k value
+        // Make the k selection plot
+        cnmf_kselection(cnmf_prepared, cnmf_combine_out)
+        
+        // Plot k-selection tree (how programs relate to eachother)
         if (params.cnmf.ktree_plot) {
-            // Suppose your initial channel is ch_out: tuple val(k), path(file)
-
             // Collect all (k, file) pairs into a list
             all_files = cnmf_out.spectra_score.map{row -> row[1]}.collect()
 
@@ -212,11 +218,15 @@ workflow cnmf {
                 magma_base(params.magma, params.convert, params.rn_ensembl_version, ensembl_reference)
                 
                 // Magma association with cnmf
-                magma_cnmf_in = cnmf_out.spectra_score.filter { tuple ->
-                        def (k, path) = tuple
-                        !(k in params.cnmf.k_ignore.split(','))
-                    }.map{i -> tuple("k_"+i[0], i[1])}
-                    
+                if (params.cnmf.k_ignore != null) {
+                    magma_cnmf_in = cnmf_out.spectra_score.filter { tuple ->
+                            def (k, path) = tuple
+                            !(k in params.cnmf.k_ignore.split(','))
+                        }.map{i -> tuple("k_"+i[0], i[1])}
+                } else {
+                    magma_cnmf_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
+                }
+                
                 magma_assoc_in = magma_base.out.raw.combine(magma_cnmf_in)
                 
                 // Run regression based magma

@@ -8,7 +8,7 @@ process seurat_to_h5ad {
     container params.rn_container
     conda params.rn_conda
     
-    publishDir "$params.rn_publish_dir/h5ad/per_batch", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/h5ad/per_batch/${params.rn_runname}", mode: 'symlink'
     
     input:
         tuple val(id), path(file), val(convert_ids)
@@ -39,7 +39,7 @@ process link_h5ad {
     container params.rn_container
     conda params.rn_conda
     
-    publishDir "$params.rn_publish_dir/h5ad/per_batch", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/h5ad/per_batch/${params.rn_runname}", mode: 'symlink'
     
     input:
         tuple val(id), path(file, name: "input.h5ad"), val(convert_ids)

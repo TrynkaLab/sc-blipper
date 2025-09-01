@@ -71,8 +71,8 @@ def merge_h5ad_files(output_file, input_files, overlap_only=False, nonoverlap_fi
         batch_names.append(batch_name)
 
     # Merge AnnData
-    join_type = 'outer' if not overlap_only else 'inner'
-    merged = ad.concat(adatas, join=join_type, label='orig_h5ad', keys=batch_names)
+    #join_type = 'outer' if not overlap_only else 'inner'
+    merged = ad.concat(adatas, join="outer", merge='unique', label='orig_h5ad', keys=batch_names)
 
     merged.write_h5ad(output_file)
     print(f"Merged {len(input_files)} files into {output_file}")

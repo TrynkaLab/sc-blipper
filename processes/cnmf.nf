@@ -7,7 +7,7 @@ process cnmf_pre_process {
     container params.rn_container
     conda params.rn_conda
 
-    publishDir "$params.rn_publish_dir/h5ad/cnmf", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/h5ad/cnmf/${params.rn_runname}", mode: 'symlink'
     
     input:
         tuple val(id), path(file)
@@ -217,6 +217,7 @@ process cnmf_consensus {
     input:
         tuple val(id), path(file, name: "tmp/*"), val(k)
         path(merged, name: "merged/*")
+        path(h5ad)
     output:
         tuple val(k), path("${id}/${id}.gene_spectra_score*"), emit: spectra_score
         tuple val(k), path("${id}/${id}.gene_spectra_tpm*"), emit: spectra_tpm
@@ -224,8 +225,12 @@ process cnmf_consensus {
         tuple val(k), path("${id}/${id}.usages.k_*"), emit: usages_k
         tuple val(k), path("${id}/${id}.starcat_spectra.k_*"), emit: starcat_spectra_k
         tuple val(k), path("${id}/${id}.*.png"), emit: plots
+        tuple val(k), path("${id}/${id}.*.h5ad"), optional: true, emit: h5ad
 
     script:
+    
+        String local_dens = params.cnmf.local_density.toString().replace('.', '_')
+    
         cmd = 
         """
         # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir
@@ -251,6 +256,19 @@ process cnmf_consensus {
         # Zip the textfiles
         find ${id} -maxdepth 1 -type f -name "*.txt" ! -xtype l -exec gzip {} \\;
         """
+    
+        if (h5ad.getFileName().toString() != "NO_H5AD") {
+            cmd +=
+            """
+            # Convert to h5ad file
+            cnmf_to_h5ad.py \
+            --spectra ${id}/${id}.gene_spectra_score.*.txt.gz \
+            --usage ${id}/${id}.usages.k_*.txt.gz \
+            --obs ${h5ad} \
+            --output ${id}/${id}.k_${k}.dt_${local_dens}.h5ad
+            """
+        }
+    
     
         cmd
 }

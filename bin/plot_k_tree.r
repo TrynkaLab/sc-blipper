@@ -274,18 +274,35 @@ for (group in unique(res.tmp$group)) {
   res.cur <- res.tmp[res.tmp$group == group,]
   
   # Save the edgelist
-  write.table(res.cur, sep="\t", row.names=F, quote=F, file=paste0(output, "_edgelist.tsv"))
+  write.table(res.cur, sep="\t", row.names=F, quote=F, file=paste0(output, "_edgelist_raw.tsv"))
   
   # Filter edges
   if (threshold == "signif") {
     res.cur[p.adjust(res.cur$pval, method="bonf") > 0.05,"beta"] <- NA
   } else if (threshold == "auto") {
-    res.cur[abs(res.cur$beta) < quantile(abs(res.cur$beta), probs=0.9),"beta"] <- NA
+    # Keep the top 3 connections for each ref node
+    
+  idx <- 1:nrow(res.cur)
+  for (gp in unique(res.cur$ref_gep_id)) {
+    
+    cur.idx <- idx[res.cur$ref_gep_id == gp]    
+    ord <- order(-abs(res.cur[cur.idx, "beta"]))
+    
+    # Keep the top 3 values
+    if (length(ord) >=3) {
+      ord <- ord[-c(1:3)]
+      
+      res.cur[cur.idx[ord], "beta"] <- NA
+    }
+  }  
   } else if (is.numeric(threshold)) {
     res.cur[abs(res.cur$beta) < threshold,"beta"] <- NA
   } else {
     stop("Provided value for threshold is not valid")
   }
+  
+  write.table(res.cur, sep="\t", row.names=F, quote=F, file=paste0(output, "_edgelist_filtered.tsv"))
+
   
   pres <- make.plot(res.cur, mode=mode, order=F)
   pdf(width=6+(pres$nnode.max*0.25), height=5+(pres$ngroup*1), file=paste0(output, "_", group, "_ordered.pdf"))

@@ -190,7 +190,7 @@ process magma_assoc {
     container params.rn_container
     conda params.rn_conda
     
-    publishDir "$params.rn_publish_dir/magma/per_trait/${trait}/assoc", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/${trait}/assoc", mode: 'symlink'
         
     input:
         tuple val(trait), file(magma_raw), val(database), file(matrix)
