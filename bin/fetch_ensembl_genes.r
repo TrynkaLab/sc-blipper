@@ -67,19 +67,52 @@ fetch_unique_genes <- function(ensembl_version, output_file, merging_strat="firs
   # Remove duplicates by ensembl_gene_id
   genes_unique <- genes[!duplicated(genes$ensembl_gene_id), ]
 
-  # Write to output file
-  write.table(genes_unique, file = paste0(output_file, "_ensembl.tsv"), sep = "\t", quote = FALSE, row.names = FALSE,
-              col.names = attr)
-              
-  gene_linker <- genes_unique[,c("hgnc_symbol", "ensembl_gene_id")]
-
+  # Make sure the names are unique
   if (merging_strat == "first") {
-    gene_linker[is.na(gene_linker$hgnc_symbol), 1] <- "NO_NAME"
-    gene_linker[gene_linker$hgnc_symbol == "", 1] <- "NO_NAME"
-    gene_linker[gene_linker$hgnc_symbol == "NO_NAME", 1] <- make.unique(gene_linker[gene_linker$hgnc_symbol == "NO_NAME", 1], sep="_")
-  } else {
+    # Sort so the proper chromosomes and protein coding genes are first, this avoids wierd contigs getting the _
+    
+    # Define the chromosome order
+    chrom_order <- c(as.character(1:22), "X", "Y", "MT")
+
+    # Create a factor for chromosome_name with custom levels
+    genes_unique$chromosome_name <- factor(
+      genes_unique$chromosome_name, 
+      levels = c(chrom_order, sort(setdiff(unique(genes_unique$chromosome_name), chrom_order)))
+    )
+
+    # Sort on biotype first
+    biotype_order <- ifelse(genes_unique$gene_biotype == "protein_coding", 0, 1)
+
+    # Sort the dataframe
+    genes_unique <- genes_unique[order(genes_unique$chromosome_name, biotype_order), ]    
+  
+    genes_unique[,"final_gene_name"] <- genes_unique[,"hgnc_symbol"]
+    genes_unique[is.na(genes_unique$final_gene_name), "final_gene_name"] <- "NO_NAME"
+    genes_unique[genes_unique$final_gene_name == "", "final_gene_name"] <- "NO_NAME"
+    
+    # Dedup NO_NAME
+    genes_unique[genes_unique$final_gene_name == "NO_NAME", "final_gene_name"] <- make.unique(genes_unique[genes_unique$final_gene_name == "NO_NAME", "final_gene_name"], sep="_")
+    
+    # Dedup any other gene names
+    genes_unique[,"final_gene_name"] <- make.unique(genes_unique[,"final_gene_name"], sep="_")    
+    
+    # Sort on back on chromosome position
+    genes_unique <- genes_unique[order(genes_unique$chromosome_name, genes_unique$start_position), ]    
+    
+    # Convert back to string just to be safe
+    genes_unique$chromosome_name <- as.character(genes_unique$chromosome_name)
+
+  }  else {
     stop("No other option then 'first' currenly implementedq")
   }
+  
+  # Write to output file
+  write.table(genes_unique, file = paste0(output_file, "_ensembl.tsv"), sep = "\t", quote = FALSE, row.names = FALSE,
+              col.names = c(attr, "final_gene_name"))
+  
+  # Make the gene linkers
+  gene_linker <- genes_unique[,c("final_gene_name", "ensembl_gene_id")]
+  colnames(gene_linker) <- c("hgnc_symbol", "ensembl_gene_id")
 
   write.table(gene_linker, file = paste0(output_file, "_name_to_ensembl.tsv"), sep = "\t", quote = FALSE, row.names = FALSE,
               col.names = FALSE)
