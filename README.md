@@ -2,9 +2,19 @@
 
 This is a nextflow pipeline for post-proccessing single cell RNAseq datasets and performing gene set enrichments.
 
-
+On the whishlist to implement:
+- starCAT > inferring nmf usages based on a reference run
+- scCellFie > metabolite pathway activitiy potential inference 
 
 # General usage
+
+If you are not familiar with nextflow, While not needed, I would reccomend reading up a little first as it will make more sense, especially when it comes to resolving errors. I tried to write this so you don't need to get too deep into the weeds tough, nextflow can be a bit of a rabbithole. The pipeline loosely follows nf-core principles.
+
+Some resources
+- https://training.nextflow.io/2.1/#nextflow-for-science
+- https://nf-co.re/docs/usage/getting_started/terminology
+- https://nf-co.re/docs/usage/troubleshooting/basics
+
 There are currently 3 workflows available in the pipeline, below is an overview of the minimal I/O, it can change depending on which options are provided
 
 1. cnmf > runs consensus non-negative matrix factorization and annotation of the outputs 
@@ -41,15 +51,28 @@ Then
 ```
 source ~/.bashrc
 ```
-And thats it!
+And thats it, you are good to go!
 
 # Installing (other configurations)
 
-TBD
+1. Make sure you have nextflow available (>=25.04.6)
+2. Clone the repo
+3. Create a conda env following the instructions in requirements.txt (needs some manual pacakges, future will add singularity containers)
+4. Update `nextflow.config` or override with your config the path to the conda env (`params.rn_conda=/path/to/env"`)
+5. Add a profile to work with your cluster configuration (can be put in './conf' folder)
+6. Add the new profile to the `nextflow.config` `profiles{}` block
+7. (optional) Update the runner script `sc-blipper` as the primary entry point (By default works with LSF, easy to update to SLURM)
+8. (optional) Add the runner script `sc-blipper` to your path
 
 # Note on gene ids
 The pipeline runs on either gene symbols if `convert.is_ensembl_id=false` or on ensembl id if `convert.is_ensembl_id=true`.
 You can convert between these two by manipulating these parameters, as well as the manifest.
+Ensembl > gene name mapping is not unique. To make sure gene names are unique and all genes are preserved, the following strategy is applied:
+
+1. Sort ensembl on chromosome 1-22,X,Y, MT
+2. Sort so biotype "protein_coding" apears first
+3. Set missing gene names to NO_NAME
+4. Make genes unique by appending a number at the end if duplicated `<gene_name>_<number>`
 
 For example tp merge one h5ad with ensembl ids with a seurat file with gene symbols and end up with gene symbols:
 
@@ -66,13 +89,16 @@ If you indead want to run with ensembl_ids:
 4. set `convert.convert_gene_names=true`
 
 By default, gene-ensembl links are downloaded from biomart, the version is controllable through `rn_ensembl_version` (currently 114 is the higest)
+
+
 A custom id linking file with two columns, old id, new id can be specified with `convert.id_linker`, but this is mostly untested, it should work if the
-target is ensembl id or gene symbol, but any other id will not work. I.e. entrez > ensembl id is ok, but ensembl id > entrez may not currently work for some steps.
+target is ensembl id or gene symbol, but others are untested and might fail for some of the steps.
 
 
 # CNMF
-At the moment the starting point will be QC'ed seurat or scanpy objects.
-One or more can be supplied in the manifest. Currently in phase 1 which aims to:
+
+## What it does
+This workflow takes raw counts from one or multiple files, optionally harmony corrects them, runs cNMF and then performs various enrichment analysis on the gene spectra scores from the cNMF to aid in annotation. 
 
 1. Convert to anndata (only if Seurat)
 2. Merge objects (only if manifest has more then 1 row)
@@ -85,6 +111,8 @@ One or more can be supplied in the manifest. Currently in phase 1 which aims to:
 5. Merge cNMF annotations, create h5ad
 
 ## General IO
+The input is one or multiple seurat and or h5ad files with counts / .X set. The pipeline works with .h5ad so seurat objects are first converted
+
 - Input:
   - manifest.tsv pointing to seurat.rds and or .h5ad with raw counts
   - params.config file setting parameters
@@ -128,8 +156,8 @@ The output for the pipeline is organized into a couple of folders
 
 So for k=18 the output might look like this. The output should be fairly self explanatory. For a detailled breakdown on the nuances of the cNMF output please refer to:
 
-https://github.com/dylkot/cNMF
-https://github.com/dylkot/cNMF/issues/59#issuecomment-2099453595
+- https://github.com/dylkot/cNMF
+- https://github.com/dylkot/cNMF/issues/59#issuecomment-2099453595
 
 ```
 .
@@ -173,12 +201,14 @@ Optionally an h5ad file is created which has the usages as `X` and the spectra s
 
 
 # Enrich
-This workflow takes a numeric matrix (lfc/beta's/pvalues/-1,0,1) and runs enrichment analysis on it. It is very configurable, so lots of options.
+
+## What it does
+This workflow takes a numeric matrix (lfc/beta's/pvalues/-1,0,1) and runs enrichment analysis on it. It has strong overlaps with cNMF, but is slightly different in that the starting point is generalized to work with any numeric matrix. It is very configurable, so lots of options.
 
 
 ## General IO
 - Input:
-  - gene x condition matrix (can be tranposed as well using `enrich.transpose=true`)
+  - gene x condition matrix (can be tranposed if it is condition x gene, using `enrich.transpose=true`)
   - params.config file setting parameters
   - .gmt files for geneset and summary statistics for gwas enrichment
 - Output:

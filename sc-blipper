@@ -31,7 +31,7 @@ export NXF_VER=25.04.6
 # Currently doesn't use signularity, but will do in the future
 export NXF_SINGULARITY_CACHEDIR=/lustre/scratch125/humgen/teams_v2/trynka/resources/singularity_cache
  
-# Path to nextflow file
+# Path to nextflow file, MUST BE ABSOLUTE
 NF_FILE=/software/teamtrynka/installs/sc-blipper/main.nf
  
 prefix="$(timestamp_folder_name)"
@@ -137,8 +137,11 @@ echo "--------------------------------------------------------------------"
 echo $CMD
 echo "--------------------------------------------------------------------"
 if [ $SUBMIT -eq 0 ]; then
+    # This runs the nextflow job locally
     eval $CMD
 else
+    # This submits the nextflow runner to the cluster, in this case LSF, but update
+    # this for your cluster configuration
     CMD="bsub -n 1 \
     -G teamtrynka \
     -M 4000 \
