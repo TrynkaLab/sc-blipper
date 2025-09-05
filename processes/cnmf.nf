@@ -205,7 +205,6 @@ process cnmf_consensus {
     
     container params.rn_container
     conda params.rn_conda
-    // I dont think this needs to be publised long term, but for now its handy for debugging
     publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_${k}", mode: 'symlink', saveAs: { filepath ->
         // filepath is a Path object, convert to string
         def pathStr = filepath.toString()
@@ -302,3 +301,56 @@ process cnmf_ktree {
     
         cmd
 }
+
+process cnmf_summarize {
+    label params.cnmf.label
+    scratch params.rn_scratch
+    
+    container params.rn_container
+    conda params.rn_conda
+    // I dont think this needs to be publised long term, but for now its handy for debugging
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/${k}/final", mode: 'symlink'
+    
+    input:
+        val(id)
+        tuple val(k), path(spectra_file), path(enrich_file)
+        path(marker_file)
+    output:
+        path("${id}*.pdf", emit: plots)
+        path("${id}*.tsv", emit: summary)
+    script:
+        cmd = 
+        """
+        create_cnmf_summary.r \
+        --spectra "${spectra_file}" \
+        --output ${id}_${k}\
+        """
+        
+        if (params.cnmf.summarize.topn != null) {
+            cmd += " --topn ${params.cnmf.summarize.topn}"
+        }
+        
+        if (params.cnmf.summarize.databases != null) {
+            cmd += " --databases ${params.cnmf.summarize.databases}"
+        }
+        
+        if (params.cnmf.summarize.tests != null) {
+            cmd += " --tests ${params.cnmf.summarize.tests}"
+        }
+        
+        if (params.cnmf.summarize.scale_spectra) {
+            cmd += " --scaleSpectra"
+        }
+    
+        if (enrich_file.getFileName().toString() != "NO_ENRICH") {
+            cmd += " --enrichment ${enrich_file}"
+        }
+        
+        if (marker_file.getFileName().toString() != "NO_MARKER") {
+            cmd += " --annot ${marker_file}"
+        }
+    
+        cmd
+}
+
+

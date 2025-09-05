@@ -250,7 +250,6 @@ enrich {
     run_ora = true
     run_decoupler = true
     run_magma = true
-  
 }
 ```
 
