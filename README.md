@@ -104,6 +104,27 @@ A custom id linking file with two columns, old id, new id can be specified with 
 target is ensembl id or gene symbol, but others are untested and might fail for some of the steps.
 
 
+# Note on configuring resource limits
+
+The default resource labels have been tested and optimized to run with an object of ~50k cells. If a job crashes, Nextflow will attempt it again, doubling resource requirements where possible up to 2 times. However this can be quite wastefull, so with larger objects of million+ cells you may need to change resource labels, particularly for the `convert` and `cnmf` proccesses. The file `conf/processes.config` has a list of available resource labels. The resource labels for a config can be adjused by the `label` parameter. For instance to give the cnmf proccesses more memory set `cnmf.label='medium'`. Should a suitable resource label not be available, you can define your own in your config file, see the `conf/processes.config` for examples.
+
+
+# Note on finalizing output and cleaning up after a successfull run
+
+The pipeline results uses Nextflow publishDir directive, this means the output in results is linked to the process output in the workdir. This is nice and efficient for organizing output, especially when you are messing with the pipeline settings, as it avoids duplicating things. However, its not so handy for archiving or finalizing results. For this reason NEVER REMOVE THE WORKDIR BEFORE FINALIZING. To finalize the results and make them ready for backup etc:
+
+```
+rsync -rP --copy-links results results_final
+
+```
+
+This will make a deep copy of the results, copying all the symlinked files as files, not links. Then its safe to remove the results and workdir folders. This makes it impossible to pick a run up halfway, and you will need to start fresh after doing this.
+
+```
+rm -r results
+rm -r workdir
+```
+
 # CNMF
 
 ## What it does
