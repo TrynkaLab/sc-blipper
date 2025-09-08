@@ -125,7 +125,9 @@ rm -r results
 rm -r workdir
 ```
 
-# CNMF
+-------------------------------------------------------
+
+# Wokrflow: CNMF
 
 ## What it does
 This workflow takes raw counts from one or multiple files, optionally harmony corrects them, runs cNMF and then performs various enrichment analysis on the gene spectra scores from the cNMF to aid in annotation. 
@@ -233,7 +235,8 @@ Optionally an h5ad file is created which has the usages as `X` and the spectra s
 # Workflow: Enrich
 
 
-## What it does
+## What it does
+
 This workflow takes a numeric matrix (lfc/beta's/pvalues/-1,0,1) and runs enrichment analysis on it. It has strong overlaps with cNMF, but is slightly different in that the starting point is generalized to work with any numeric matrix. It is very configurable, so lots of options.
 
 
