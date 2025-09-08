@@ -323,7 +323,8 @@ process cnmf_summarize {
         """
         create_cnmf_summary.r \
         --spectra "${spectra_file}" \
-        --output ${id}_${k}\
+        --output ${id}_${k} \
+        --enrichmentThreshold ${params.cnmf.summarize.threshold}\
         """
         
         if (params.cnmf.summarize.topn != null) {

@@ -280,9 +280,9 @@ workflow cnmf {
         //----------------------------------------------------------------------------------
         // Make a sumamry table per value of k
         if (params.cnmf.run_enrichment) {
-            summarize_in = cnmf_out.spectra_tpm.combine(concat_enrichment_results_per_k.out.std_nominal, by: 0)
+            summarize_in = cnmf_out.spectra_score.map{row -> tuple("k_${row[0]}", row[1])}.combine(concat_enrichment_results_per_k.out.std_nominal, by: 0)
         } else {
-            summarize_in = cnmf_out.spectra_tpm.map{row -> tuple(row[0], row[1], file("NO_ENRICH"))}
+            summarize_in = cnmf_out.spectra_score.map{row -> tuple(row[0], row[1], file("NO_ENRICH"))}
         }
         
         if (params.cnmf.summarize.marker_file == null) {

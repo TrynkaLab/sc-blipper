@@ -237,8 +237,8 @@ process concat_enrichment_results {
         tuple val(id), path(files)
         path(annot_file)
     output:
-        path("${id}_merged.tsv.gz", emit: std)
-        path("${id}_merged_nominal.tsv", emit: std_nominal)
+        tuple val(id), path("${id}_merged.tsv.gz"), emit: std
+        tuple val(id), path("${id}_merged_nominal.tsv"), emit: std_nominal
 
     script:
     

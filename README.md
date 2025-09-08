@@ -64,6 +64,15 @@ And thats it, you are good to go!
 7. (optional) Update the runner script `sc-blipper` as the primary entry point (By default works with LSF, easy to update to SLURM)
 8. (optional) Add the runner script `sc-blipper` to your path
 
+
+# Configuring a pipeline run
+
+A run can be configured using a nextflow config file supplied to `sc-blipper -c <config.config>`. Please see `conf/example_<x>.config` for some examples. Also see `nextflow.config` for a full list of available options.
+
+# Note on gmt files
+
+Reference pathways are provided as .gmt files in the assets folder. The ones you want to use can bet set with `enrich.gmt_files`. By default none are set. They are bundled in two flavours, as ensembl id or as gene symbols. 
+
 # Note on gene ids
 The pipeline runs on either gene symbols if `convert.is_ensembl_id=false` or on ensembl id if `convert.is_ensembl_id=true`.
 You can convert between these two by manipulating these parameters, as well as the manifest.
@@ -200,7 +209,8 @@ Optionally an h5ad file is created which has the usages as `X` and the spectra s
 
 
 
-# Enrich
+# Workflow: Enrich
+
 
 ## What it does
 This workflow takes a numeric matrix (lfc/beta's/pvalues/-1,0,1) and runs enrichment analysis on it. It has strong overlaps with cNMF, but is slightly different in that the starting point is generalized to work with any numeric matrix. It is very configurable, so lots of options.
@@ -257,7 +267,11 @@ enrich {
 You may wish to annotate the final results table with additional metadata. In this case these can be provided with `enrich.annotate` which should be the path to a tsv file containing the column annotations to add. Are assumed to be in the same order as colnames (I think). 
 
 
-# Convert
+# Workflow: Convert
+
+
+## What it does
+Takes one or more seurat or h5ad files, optionally coverts gene names or ids and optionally run harmony batch correction.
 
 
 ## General IO
@@ -265,3 +279,5 @@ You may wish to annotate the final results table with additional metadata. In th
  - manifest.tsv pointing to seurat.rds and or .h5ad with raw counts
  - params.config file setting parameters
 - Output:
+  - Merged, id converted h5ad
+  - Optionally harmony corrected counts using the same process as described for cNMF

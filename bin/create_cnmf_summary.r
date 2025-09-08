@@ -139,6 +139,9 @@ option_list <- list(
 
   make_option(c("-e", "--enrichment"), type="character", default=NULL,
               help="Enrichment file or NULL"),
+  
+  make_option(c("--enrichmentThreshold"), type="numeric", default=5e-5,
+            help="Pvalue threshold to consider enrichments [default: %default]"),
 
   make_option(c("-a", "--annot"), type="character", default=NULL,
               help="Annotation file or NULL"),
@@ -168,6 +171,7 @@ sep <- opt$sep
 log.spectra <- opt$logSpectra
 scale.spectra <- opt$scaleSpectra
 output.prefix <- opt$output
+enrich.threshold <- opt$enrichmentThreshold
 
 if (is.null(spectra.file)) {
   stop("You must provide a spectra file with -S / --spectra")
@@ -181,37 +185,51 @@ spectra     <- t(spectra)
 # Find the top.n genes based on the spectra file
 top.spectra <- apply(apply(spectra, 2, function(x){rownames(spectra)[order(x, decreasing = T)]})[1:top.n,], 2, paste0, collapse=sep)
 top.mat     <- data.frame(top_gep_genes=top.spectra)
-
+cat("[INFO] read spectra\n")
 #-------------------------------------------------------------------------------
 # Enrichment
 if (!is.null(enrichment.file)) {
   enrich       <- read(enrichment.file, rn=F)
-  
+  cat("[INFO] read erichment\n")
+  print(head(enrich))
+
   if (is.null(tests)) {
     tests <- unique(enrich$test)
   }
   
   if (is.null(databases)) {
-    databases <- unique(enrich$databases)
+    databases <- unique(enrich$database)
   }
   
   enrich       <- enrich[enrich$test %in% tests,]
   enrich       <- enrich[enrich$database %in% databases,]
-  enrich$group <- paste0(enrich$test, "_", enrich$condition)
-  top          <- get.topn(enrich[,c("group", "trait", "condition", "test", "pvalue")], top.n=top.n)
-  
-  # Aggregate by group
-  top.agg <- aggregate(top[,c("condition", "test", "trait")], by=list(top$group), function(x){paste0(unique(x), collapse = sep)})
-  
-  # Convert to matrix
-  top.agg <- acast(top.agg, condition ~ test, value.var = "trait")
-  top.mat <- cbind(top.mat, top.agg[colnames(spectra),])
+
+  if (nrow(enrich) >=1) {
+      enrich$group  <- paste0(enrich$test, "_", enrich$condition)
+      enrich        <- enrich[,c("group", "trait", "condition", "test", "pvalue")]
+      enrich        <- enrich[enrich$pvalue < enrich.threshold,]
+      
+      enrich$pvalue <- -log10(enrich$pvalue)
+      
+      top          <- get.topn(enrich, top.n=top.n)
+      # Aggregate by group
+      top.agg <- aggregate(top[,c("condition", "test", "trait")], by=list(top$group), function(x){paste0(unique(x), collapse = sep)})
+      
+      # Convert to matrix
+      top.agg <- acast(top.agg, condition ~ test, value.var = "trait")
+      
+      top.mat <- cbind(top.mat, top.agg[colnames(spectra),])
+  } else {
+    warning("[WARN] No enrichment records left after filtering\n")
+  } 
+
 }
 
 #-------------------------------------------------------------------------------
 # Annotations
 if (!is.null(annot.file)) {
   annot           <- read(annot.file)
+    
   ol              <- intersect(rownames(spectra), rownames(annot))
   m               <- spectra[ol,]
   m2              <- aggregate(m, by=list(group=annot[ol,1]), FUN=mean)
@@ -223,10 +241,16 @@ if (!is.null(annot.file)) {
   if (scale.spectra) {
     m2 <- scale(m2)
   }
-  top.mat <- cbind(top.mat, m2[rownames(top.mat),])
+  
+  # Cluster 
+  d <- dist(t(m2))       # transpose to cluster columns
+  hc <- hclust(d)   
+  
+  
+  top.mat <- cbind(top.mat, m2[rownames(top.mat), hc$order])
   
   pdf(width=2+(nrow(m2)*0.5), height=2+(ncol(m2)*0.5), file=paste0(output.prefix, "_marker_heatmap.pdf"))
-  plot_simple_hm(m2)
+  plot(plot_simple_hm(m2))
   dev.off()
 }
 

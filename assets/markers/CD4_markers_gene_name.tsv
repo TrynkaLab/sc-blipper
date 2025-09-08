@@ -1,84 +1,84 @@
-gene_name	average_group
-MKI67	proliferating [MKI67]
-TOP2A	proliferating-G2M [TOP2A]
-CDC45	proliferating-S [CDC45]
-PCNA	proliferating-S [PCNA]
-SYCP2	proliferating-S [SYCP2]
-CTLA4	activation;Treg [CTLA4]
-IL2RA	activation;Treg [IL2RA]
-CCNB1	proliferating-M [CCNB1]
-CCNB2	proliferating-M [CCNB2]
-RHOB	cytokine-trafficking [RHOB]
-MDM2	apoptosis [mean]
-BAX	apoptosis [mean]
-FDXR	apoptosis [mean]
-PHLDA3	apoptosis [mean]
-TP53	apoptosis [mean]
-FOXP3	Treg [FOXP3]
-GATA3	Th2 [GATA3]
-TBX21	Th [TBX21]
-IKZF2	Treg [IKZF2]
-GZMB	Th_cytotoxic [GZMB]
-GZMA	Th_cytotoxic [GZMA]
-NKG7	Th_cytotoxic [NKG7]
-IFNG	Th_effector [IFNG]
-IL10	Th_effector [IL10]
-IL13	Th2 [IL13]
-IL4	Th2 [IL4]
-IL5	Th2 [IL5]
-RORC	Th17 [RORC]
-IL17A	Th17 [IL17A]
-IL7R	Th_resting [IL7R]
-CD52	Th_resting [CD52]
-CCR7	Tn;Tcm [CCR7]
-SELL	Tn [SELL]
-IFIH1	IFN_production [IFIH1]
-GAPDH	glycolysis [mean]
-TPI1	glycolysis [mean]
-PGK1	glycolysis [mean]
-G6PD	glycolysis [mean]
-LDHA	glycolysis [mean]
-HLA-DMA	HLA [mean]
-HLA-DPA1	HLA [mean]
-HLA-DQA1	HLA [mean]
-HLA-DQA2	HLA [mean]
-HLA-DQB1	HLA [mean]
-HLA-DRA	HLA [mean]
-HLA-DRB5	HLA [mean]
-HSPA5	HLA [mean]
-HSPA8	HLA [mean]
-HSPB1	HLA [mean]
-HSPD1	HLA [mean]
-HSPE1	HLA [mean]
-HSPH1	HLA [mean]
-IFI27	IFN_response [mean]
-IFI30	IFN_response [mean]
-IFI44	IFN_response [mean]
-IFI6	IFN_response [mean]
-IFITM1	IFN_response [mean]
-IFITM2	IFN_response [mean]
-IFITM3	IFN_response [mean]
-CCL1	chemokine [mean]
-CCL3	chemokine [mean]
-CCL4	chemokine [mean]
-CCL4L2	chemokine [mean]
-CCL3L1	chemokine [mean]
-CXCL8	chemokine [mean]
-MT-ATP6	mitochondria_oxphos [mean]
-MT-ATP8	mitochondria_oxphos [mean]
-MT-CO1	mitochondria_oxphos [mean]
-MT-CO2	mitochondria_oxphos [mean]
-MT-CO3	mitochondria_oxphos [mean]
-MT-CYB	mitochondria_oxphos [mean]
-MT-ND1	mitochondria_oxphos [mean]
-MT-ND2	mitochondria_oxphos [mean]
-MT-ND3	mitochondria_oxphos [mean]
-MT-ND4	mitochondria_oxphos [mean]
-MT-ND4L	mitochondria_oxphos [mean]
-MT-ND5	mitochondria_oxphos [mean]
-MT-ND6	mitochondria_oxphos [mean]
-H1-1	histone [mean]
-H1-2	histone [mean]
-H1-3	histone [mean]
-H1-4	histone [mean]
-H1-5	histone [mean]
+gene_name	average_group_short
+MKI67	MKI67
+TOP2A	TOP2A
+CDC45	CDC45
+PCNA	PCNA
+SYCP2	SYCP2
+CTLA4	CTLA4
+IL2RA	IL2RA
+CCNB1	CCNB1
+CCNB2	CCNB2
+RHOB	RHOB
+MDM2	apoptosis
+BAX	apoptosis
+FDXR	apoptosis
+PHLDA3	apoptosis
+TP53	apoptosis
+FOXP3	FOXP3
+GATA3	GATA3
+TBX21	TBX21
+IKZF2	IKZF2
+GZMB	GZMB
+GZMA	GZMA
+NKG7	NKG7
+IFNG	IFNG
+IL10	IL10
+IL13	IL13
+IL4	IL4
+IL5	IL5
+RORC	RORC
+IL17A	IL17A
+IL7R	IL7R
+CD52	CD52
+CCR7	CCR7
+SELL	SELL
+IFIH1	IFIH1
+GAPDH	glycolysis
+TPI1	glycolysis
+PGK1	glycolysis
+G6PD	glycolysis
+LDHA	glycolysis
+HLA-DMA	HLA
+HLA-DPA1	HLA
+HLA-DQA1	HLA
+HLA-DQA2	HLA
+HLA-DQB1	HLA
+HLA-DRA	HLA
+HLA-DRB5	HLA
+HSPA5	HSP
+HSPA8	HSP
+HSPB1	HSP
+HSPD1	HSP
+HSPE1	HSP
+HSPH1	HSP
+IFI27	IFN_response
+IFI30	IFN_response
+IFI44	IFN_response
+IFI6	IFN_response
+IFITM1	IFN_response
+IFITM2	IFN_response
+IFITM3	IFN_response
+CCL1	chemokines
+CCL3	chemokines
+CCL4	chemokines
+CCL4L2	chemokines
+CCL3L1	chemokines
+CXCL8	chemokines
+MT-ATP6	mitochondria_oxphos
+MT-ATP8	mitochondria_oxphos
+MT-CO1	mitochondria_oxphos
+MT-CO2	mitochondria_oxphos
+MT-CO3	mitochondria_oxphos
+MT-CYB	mitochondria_oxphos
+MT-ND1	mitochondria_oxphos
+MT-ND2	mitochondria_oxphos
+MT-ND3	mitochondria_oxphos
+MT-ND4	mitochondria_oxphos
+MT-ND4L	mitochondria_oxphos
+MT-ND5	mitochondria_oxphos
+MT-ND6	mitochondria_oxphos
+H1-1	histones
+H1-2	histones
+H1-3	histones
+H1-4	histones
+H1-5	histones
