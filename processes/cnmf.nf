@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 process cnmf_pre_process {
-    label params.cnmf.label
+    label params.cnmf.label_high
     scratch params.rn_scratch
     
     container params.rn_container
@@ -121,7 +121,7 @@ process cnmf_factorize {
 }
 
 process cnmf_combine {
-    label params.cnmf.label
+    label params.cnmf.label_high
     scratch params.rn_scratch
     
     container params.rn_container
@@ -200,7 +200,7 @@ process cnmf_kselection {
 }
 
 process cnmf_consensus {
-    label params.cnmf.label
+    label params.cnmf.label_high
     scratch params.rn_scratch
     
     container params.rn_container
