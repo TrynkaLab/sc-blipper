@@ -140,7 +140,7 @@ option_list <- list(
   make_option(c("-e", "--enrichment"), type="character", default=NULL,
               help="Enrichment file or NULL"),
   
-  make_option(c("--enrichmentThreshold"), type="numeric", default=5e-5,
+  make_option(c("--threshold"), type="numeric", default=5e-5,
             help="Pvalue threshold to consider enrichments [default: %default]"),
 
   make_option(c("-a", "--annot"), type="character", default=NULL,
@@ -171,11 +171,16 @@ sep <- opt$sep
 log.spectra <- opt$logSpectra
 scale.spectra <- opt$scaleSpectra
 output.prefix <- opt$output
-enrich.threshold <- opt$enrichmentThreshold
+enrich.threshold <- opt$threshold
 
 if (is.null(spectra.file)) {
   stop("You must provide a spectra file with -S / --spectra")
 }
+
+cat("[INFO] spectra: ", spectra.file, "\n")
+cat("[INFO] enrichment: ", enrichment.file, "\n")
+cat("[INFO] annotations: ", annot.file, "\n")
+
 
 #-------------------------------------------------------------------------------
 # Spectra
