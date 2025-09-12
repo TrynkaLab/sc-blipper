@@ -5,7 +5,7 @@ This is a nextflow pipeline for post-proccessing single cell RNAseq datasets and
 On the whishlist to implement:
 - starCAT > inferring nmf usages based on a reference run
 - scCellFie > metabolite pathway activitiy potential inference 
-
+- singularity container for the software (currently only supports conda)
 
 # General usage
 
