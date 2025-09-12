@@ -6,6 +6,7 @@ On the whishlist to implement:
 - starCAT > inferring nmf usages based on a reference run
 - scCellFie > metabolite pathway activitiy potential inference 
 
+
 # General usage
 
 If you are not familiar with nextflow, While not needed, I would reccomend reading up a little first as it will make more sense, especially when it comes to resolving errors. I tried to write this so you don't need to get too deep into the weeds tough, nextflow can be a bit of a rabbithole. The pipeline loosely follows nf-core principles.
@@ -305,3 +306,19 @@ Takes one or more seurat or h5ad files, optionally coverts gene names or ids and
 - Output:
   - Merged, id converted h5ad
   - Optionally harmony corrected counts using the same process as described for cNMF
+
+
+
+# References / acknowledgements
+
+This is a wrapper pipline that depends on previously developped tools cNMF, GSEA, decoupleR and MAGMA. Please cite the original publications if you use this:
+- cNMF: https://elifesciences.org/articles/43803
+- cNMF: https://github.com/dylkot/cNMF
+- GSEA: https://www.pnas.org/doi/10.1073/pnas.0506580102
+- fgsea: https://github.com/alserglab/fgsea
+- fgsea: https://www.biorxiv.org/content/10.1101/060012v3
+- decoupleR: https://saezlab.github.io/decoupleR/
+- decoupleR: https://doi.org/10.1093/bioadv/vbac016
+- MAGMA: https://doi.org/10.1371/journal.pcbi.1004219
+- MAGMA: https://cncr.nl/research/magma/
+
