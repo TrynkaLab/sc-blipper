@@ -45,7 +45,7 @@ But I will point to the nextflow documentation for setting this up
 # Installing (Sanger farm22)
 Add the following to your .bashrc
 ```
-export $PATH="$PATH:/software/teamtrynka/installs/sc-blipper/"
+export PATH="$PATH:/software/teamtrynka/installs/sc-blipper/"
 ```
 
 Then 
