@@ -45,6 +45,9 @@ But I will point to the nextflow documentation for setting this up
 # Installing (Sanger farm22)
 Add the following to your .bashrc
 ```
+# Set default LSF group, important for NF to work, change for your group here
+export LSB_DEFAULTGROUP=teamtrynka
+
 export PATH="$PATH:/software/teamtrynka/installs/sc-blipper/"
 ```
 
@@ -60,7 +63,7 @@ And thats it, you are good to go!
 2. Clone the repo
 3. Create a conda env following the instructions in requirements.txt (needs some manual pacakges, future will add singularity containers)
 4. Update `nextflow.config` or override with your config the path to the conda env (`params.rn_conda=/path/to/env"`)
-5. Add a profile to work with your cluster configuration (can be put in './conf' folder)
+5. Add a profile to work with your cluster configuration (can be put in './conf' folder). Also check if any enviroment variables need to be set for your scheduler.
 6. Add the new profile to the `nextflow.config` `profiles{}` block
 7. (optional) Update the runner script `sc-blipper` as the primary entry point (By default works with LSF, easy to update to SLURM)
 8. (optional) Add the runner script `sc-blipper` to your path
