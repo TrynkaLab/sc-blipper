@@ -144,10 +144,10 @@ else
     # this for your cluster configuration
     CMD="bsub -n 1 \
     -G teamtrynka \
-    -M 4000 \
+    -M 8000 \
     -q oversubscribed \
     -W 120:00 \
-    -R 'span[hosts=1] select[mem>4000] rusage[mem=4000]' \
+    -R 'span[hosts=1] select[mem>8000] rusage[mem=8000]' \
     -o logs/${prefix}/${WORKFLOW}-%J.out \
     -e logs/${prefix}/${WORKFLOW}-%J.err \
     $CMD"

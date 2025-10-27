@@ -21,6 +21,7 @@ r-ggraph
 r-igraph
 
 #biomaRt (was not in conda, installed manually)
+install.packages("BiocManager")
 BiocManager::install("biomaRt")
 
 # Rutils, allows fread to read gzips directly (was not in conda, installed manually)
