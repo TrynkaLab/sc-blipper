@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { gsea; ora; decoupler; preprocess_matrix; concat_enrichment_results } from "../processes/enrichment.nf"
+include { gsea; ora; decoupler; concat_enrichment_results } from "../processes/enrichment.nf"
 include { magma_assoc; magma_concat } from "../processes/magma.nf"
 
 // Subworkflows
