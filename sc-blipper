@@ -9,6 +9,29 @@ set -e
 timestamp_folder_name() {
   date '+%Y%m%d_%H%M'
 }
+
+check_writable_path() {
+    local path="$1"
+    # Check if path exists
+    if [ -e "$path" ]; then
+        # Path exists, check if writable
+        if [ -w "$path" ]; then
+            return 0
+        else
+            echo "❌ Error: Path '$path' exists but is not writable"
+            return 1
+        fi
+    else
+        # Path doesn't exist, check if parent directory is writable
+        local parent_dir=$(dirname "$path")
+        if [ -w "$parent_dir" ]; then
+            return 0
+        else
+            echo "❌ Error: Cannot create directory at '$path'. Parent directory not writable"
+            return 1
+        fi
+    fi
+}
  
 module load HGI/common/nextflow/25.04.6
  
@@ -39,16 +62,17 @@ mkdir -p logs/${prefix}
 #-----------------------------------------------------------------
 # Print usage
 usage() {
-    echo -e "Usage: $0 <cnmf|enrich|convert> [-c <file.nf>] [-l] -- [nextflow pipeline args]"
+    echo -e "Usage: $0 <cnmf|enrich|convert> [-c <file.nf>] [-l] [-w workdir] -- [nextflow pipeline args]"
     echo -e "<cnmf|enrich|convert>\t\tThe workflow to run"
     echo -e "-c\t\t\t\t<path/to/config.nf> Nextflow config file for the run"
     echo -e "-l\t\t\t\tRun nextflow locally instead of submitting to oversubscribed"
+    echo -e "-w\t\t\t\tSet the nextflow work directory (default: ../workdir)"
     echo -e "-- The rest is passed to nextlfow and overrides -c"
     echo -e ""
     echo -e ""
     echo -e "Examples:"
     echo -e "sc-blipper enrich -c conf.nf -l"
-    echo -e "sc-blipper enrich -c conf.nf -- --rn_runname hello_world --enrich.input_matrix matrix.tsv"
+    echo -e "sc-blipper enrich -c conf.nf -w /path/to/workdir -- --rn_runname hello_world --enrich.input_matrix matrix.tsv"
     exit 1
 }
 
@@ -71,13 +95,19 @@ fi
 shift
 
 SUBMIT=1
-while getopts ":c:hl" opt; do
+WORKDIR="../workdir"
+
+# Modify the getopts section to include w:
+while getopts ":c:hlw:" opt; do
     case $opt in
         c)
             CONFIG_FILE="$OPTARG"
             ;;
         l)
             SUBMIT=0
+            ;;
+        w)
+            WORKDIR="$OPTARG"
             ;;
         h)
             usage
@@ -109,9 +139,16 @@ if [[ ! "$CONFIG_FILE" =~ \.config$ ]]; then
     #exit 1
 fi
 
+# Check if workdir is writable
+if ! check_writable_path "$WORKDIR"; then
+    exit 1
+fi
+
+
 echo "⬆️  Workflow: $WORKFLOW"
 echo "📄 Config file: $CONFIG_FILE"
 echo "📒 Logs: logs/${prefix}"
+echo "📂 Workdir: $WORKDIR"
 echo "🟠 Arguments: $@"
 
 # Build the nextflow command, in this case, parameters are specified through the config
@@ -119,7 +156,7 @@ CMD="nextflow \
 -log logs/${prefix}/${WORKFLOW}.nextflow.log \
 run ${NF_FILE} \
 -profile lsf \
--w ../workdir \
+-w ${WORKDIR} \
 -resume \
 -entry ${WORKFLOW} \
 -with-report logs/${prefix}/${WORKFLOW}.nextflow.html \

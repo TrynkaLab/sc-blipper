@@ -123,7 +123,7 @@ process ora {
         tuple val(id), path("${id}_ora_results.enrich.gz"), emit: std
         path("*.pdf", emit: plots)
     script:
-    
+        
     cmd =
     """
     run_gsea_ora.r \
@@ -149,7 +149,7 @@ process ora {
         cmd += " --threshold_invert TRUE"
     }
     
-    if (use_top != null) {
+    if (use_top.size() > 0) {
         cmd += " --use_top ${use_top.join(',')}"
     }
 

@@ -40,6 +40,8 @@ workflow enrich {
         //----------------------------------------------------------------------------------
         // Run ORA
         if (params.enrich.run_ora) {
+            def use_top = params.enrich.use_top != null ? params.enrich.use_top : []
+            
             ora_out = ora("enrich/",
                 input_matrix,
                 gmt_files,
@@ -48,7 +50,8 @@ workflow enrich {
                 params.enrich.absolute,
                 params.enrich.threshold,
                 params.enrich.threshold_invert,
-                params.enrich.use_top)
+                use_top
+            )
         } else {
             ora_out = [:]
             ora_out.std = Channel.empty()

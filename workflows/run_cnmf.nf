@@ -180,8 +180,8 @@ workflow cnmf {
                     universe,
                     true,
                     false,
-                    false,
                     0,
+                    false,
                     params.enrich.use_top)   
             } else {
                 ora_out = [:]
