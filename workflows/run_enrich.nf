@@ -47,6 +47,7 @@ workflow enrich {
                 false,
                 params.enrich.absolute,
                 params.enrich.threshold,
+                params.enrich.threshold_invert,
                 params.enrich.use_top)
         } else {
             ora_out = [:]

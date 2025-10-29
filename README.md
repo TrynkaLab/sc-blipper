@@ -271,6 +271,17 @@ If you are running magma, you also need to either provide:
 If using pre-computed magma scores:
 - `magma.manifest_magma` A path to a previous pipeline run magma manifest
 
+#### Using general numeric matrices (Coefficients / LFCs)
+
+If the input matrix consists of DE results, you can leave the settings at default, these will work well with GSEA, Magma and ORA. For ORA when `enrich.use_top=null` the parameters `enrich.threshold`, `enrich.absolute`  and `enrich.threshold_invert` needs consideration.
+
+#### Using binarized data
+If the input matrix is binarzied to -1,0,1 you should set `enrich.use_top=null` and `enrich.run_gsea=false`. This will then run ORA for all -1,1 genes, (ALL), -1 (DOWN) 1 (UP). Behaviour can be customized using `enrich.threshold`, `enrich.absolute` and `enrich.threshold_invert` but defaults don't need to be modified
+
+#### Using (signed) p-values
+To use pvalues you can binrize them by setting `enrich.use_top=null`, `enrich.run_gsea=false`, `enrich.threshold=0.05` and `enrich.threshold_invert=true`. This will both work for signed and unsigned pvalues and run ORA for all -1,1 genes, (ALL), -1 (DOWN) 1 (UP). With pvalues you should NOT set `enrich.absolute=F` as this will then treat any negative signed pvale as significant. 
+
+Alternatively you input them as if they were any numeric value by covnerting them to -log10, in which case see the Using DE results section.
 
 ### Gene universe (optional)
 By default, the universe is all genes included in the matrix, this works well for DE tests for instance, as the background forms all tested genes. However there might be cases where the tested geneset is pre-enriched for something, or you tested all genes, so LFCs might have an expression bias. 

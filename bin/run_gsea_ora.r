@@ -97,8 +97,11 @@ option_list <- list(
               type = "logical", default = FALSE,
               help = "Whether to transpose the matrix before processing. Default: FALSE."),
   make_option(c("--threshold"),
-              type = "numeric", default = 0.05,
-              help = "Threshold to binarize the input matrix. Use pvalue/fdr threshold if -m is pvalues, use 1 if input is binary, use 0 if input is cNMF facotors. Interacts with --absolute Default: 0.05"),
+              type = "numeric", default = 0,
+              help = "Threshold to binarize the input matrix >=. Use pvalue/fdr threshold if -m is pvalues, use 1 if input is binary, use 0 if input is cNMF facotors. Interacts with --absolute Default: 0"),
+  make_option(c("--threshold_invert"),
+              type = "logical", default = FALSE,
+              help = "Invert the threshold result to < threshold instead of > threshold. Default: FALSE"),
   make_option(c("--use_top"),
               type = "character", default = NA,
               help = "Instead of binzarizing, rank each collumn and use the top x genes (absolute if --absolute is specified). Overrides --threshold. Comma seperated list '100,200,500'. Default: NULL"),
@@ -194,7 +197,12 @@ for (gmt_file in gmt_files) {
       }
       
     } else {
-      genes <- sign[cur.mat > opt$threshold] * cur.mat[cur.mat > opt$threshold]
+      
+      if (opt$threshold_invert) {
+        genes <- sign[cur.mat < opt$threshold] * cur.mat[cur.mat < opt$threshold]
+      } else {
+        genes <- sign[cur.mat > opt$threshold] * cur.mat[cur.mat > opt$threshold]
+      }
       
       # ALl genes, up and down
       if (length(genes) > 0 ) {

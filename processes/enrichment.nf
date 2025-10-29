@@ -115,6 +115,7 @@ process ora {
         val(transpose)
         val(absolute)
         val(threshold)
+        val(threshold_invert)
         val(use_top)
     output:
         path("${id}_ora_results.tsv.gz", emit: all)
@@ -142,6 +143,10 @@ process ora {
     
     if (absolute) {
         cmd += " --absolute TRUE"
+    }
+        
+    if (threshold_invert) {
+        cmd += " --threshold_invert TRUE"
     }
     
     if (use_top != null) {
