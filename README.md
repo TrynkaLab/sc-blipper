@@ -75,7 +75,7 @@ A run can be configured using a nextflow config file supplied to `sc-blipper -c 
 
 # Note on gmt files
 
-Reference pathways are provided as .gmt files in the assets folder. The ones you want to use can bet set with `enrich.gmt_files`. By default none are set. They are bundled in two flavours, as ensembl id or as gene symbols. 
+Reference pathways are provided as .gmt files in the assets folder. The ones you want to use can bet set with `enrich.gmt_files`. By default none are set. They are bundled in two flavours, as ensembl id or as gene symbols. For a description of bundled datasets, see `assets/README.md`
 
 # Note on gene ids
 The pipeline runs on either gene symbols if `convert.is_ensembl_id=false` or on ensembl id if `convert.is_ensembl_id=true`.
@@ -112,6 +112,10 @@ target is ensembl id or gene symbol, but others are untested and might fail for 
 
 The default resource labels have been tested and optimized to run with an object of ~50k cells. If a job crashes, Nextflow will attempt it again, doubling resource requirements where possible up to 2 times. However this can be quite wastefull, so with larger objects of million+ cells you may need to change resource labels, particularly for the `convert` and `cnmf` proccesses. The file `conf/processes.config` has a list of available resource labels. The resource labels for a config can be adjused by the `label` parameter. For instance to give the cnmf proccesses more memory set `cnmf.label='medium'`. Should a suitable resource label not be available, you can define your own in your config file, see the `conf/processes.config` for examples.
 
+
+# Note on adjusted p-values in enrichment tests
+
+Different files in the pipeline may have different values for padj. The core one you want to use is padj_test, which corrects for all the tests using Benjamini-Hochbergs method listed in the padj_group column. This is set by default to correct for all tests done within a test group (top50, top100, ALL, UP, DOWN etc) but across databases (gmt files). So if you specify top50,top100 and top500 with two gmt files, one with 500 pathways, and one with 250, the total number of tests corrected for is 750 for each of the 3 top tests seperately. The padj column from ORA or GSEA only controls for FDR within a test group and database. The padj_global column corrects for all of the tests reported in the table, this is likely to be too conservative if there are repeats of essentially the same test (GSEA, topX genes on the same database).
 
 # Note on finalizing output and cleaning up after a successfull run
 
