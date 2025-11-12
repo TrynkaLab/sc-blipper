@@ -210,13 +210,19 @@ if (!is.null(enrichment.file)) {
   enrich       <- enrich[enrich$database %in% databases,]
 
   if (nrow(enrich) >=1) {
+    
+      # Select only the positive enrichments, not the depeletions
+      enrich  <- enrich[enrich$effect_size > 0, ]
+      
       enrich$group  <- paste0(enrich$test, "_", enrich$condition)
       enrich        <- enrich[,c("group", "trait", "condition", "test", "pvalue")]
       enrich        <- enrich[enrich$pvalue < enrich.threshold,]
       
       enrich$pvalue <- -log10(enrich$pvalue)
       
+      # Select the top pathways
       top          <- get.topn(enrich, top.n=top.n)
+      
       # Aggregate by group
       top.agg <- aggregate(top[,c("condition", "test", "trait")], by=list(top$group), function(x){paste0(unique(x), collapse = sep)})
       
