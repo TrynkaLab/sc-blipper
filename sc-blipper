@@ -59,14 +59,17 @@ NF_FILE=/software/teamtrynka/installs/sc-blipper/main.nf
  
 prefix="$(timestamp_folder_name)"
 mkdir -p logs/${prefix}
+
 #-----------------------------------------------------------------
 # Print usage
 usage() {
-    echo -e "Usage: $0 <cnmf|enrich|convert> [-c <file.nf>] [-l] [-w workdir] -- [nextflow pipeline args]"
+    echo -e "Usage: $0 <cnmf|enrich|convert> [-c <file.nf>] [-lqt] [-w workdir] -- [nextflow pipeline args]"
     echo -e "<cnmf|enrich|convert>\t\tThe workflow to run"
     echo -e "-c\t\t\t\t<path/to/config.nf> Nextflow config file for the run"
     echo -e "-l\t\t\t\tRun nextflow locally instead of submitting to oversubscribed"
     echo -e "-w\t\t\t\tSet the nextflow work directory (default: ../workdir)"
+    echo -e "-q\t\t\t\tSet the queue for the nextflow job (default: oversubscribed)"
+    echo -e "-w\t\t\t\tSet the time limit for the nextflow job (hours) (default: 120)"
     echo -e "-- The rest is passed to nextlfow and overrides -c"
     echo -e ""
     echo -e ""
@@ -77,8 +80,9 @@ usage() {
 }
 
 #-----------------------------------------------------------------
+# Argument parsing
 if [ -z "$1" ]; then
-    echo "Error: No workflow provided."
+    echo "❌ Error: No workflow provided."
     usage
 fi
 
@@ -94,11 +98,15 @@ fi
 # Remove first argument so we can parse the rest
 shift
 
+# Set defaults
 SUBMIT=1
 WORKDIR="../workdir"
+QUEUE="oversubscribed"
+RUNTIME_LIMIT="120"
+GROUP="teamtrynka"
 
 # Modify the getopts section to include w:
-while getopts ":c:hlw:" opt; do
+while getopts ":c:hlw:q:t:g:" opt; do
     case $opt in
         c)
             CONFIG_FILE="$OPTARG"
@@ -108,6 +116,15 @@ while getopts ":c:hlw:" opt; do
             ;;
         w)
             WORKDIR="$OPTARG"
+            ;;
+        q)
+            QUEUE="$OPTARG"
+            ;;
+        t)
+            RUNTIME_LIMIT="$OPTARG"
+            ;;
+        g)
+            GROUP="$OPTARG"
             ;;
         h)
             usage
@@ -144,11 +161,19 @@ if ! check_writable_path "$WORKDIR"; then
     exit 1
 fi
 
+# Just to make sure it gets logged correctly
+if [ $SUBMIT -eq 0 ]; then
+    QUEUE="Running locally"
+    RUNTIME_LIMIT="NA"
+fi
 
 echo "⬆️  Workflow: $WORKFLOW"
 echo "📄 Config file: $CONFIG_FILE"
 echo "📒 Logs: logs/${prefix}"
 echo "📂 Workdir: $WORKDIR"
+echo "🔄 Queue: $QUEUE"
+echo "⏱️  Runtime limit: $RUNTIME_LIMIT hours"
+echo "👨‍👨‍👧‍👧 Group: $GROUP"
 echo "🟠 Arguments: $@"
 
 # Build the nextflow command, in this case, parameters are specified through the config
@@ -180,10 +205,10 @@ else
     # This submits the nextflow runner to the cluster, in this case LSF, but update
     # this for your cluster configuration
     CMD="bsub -n 1 \
-    -G teamtrynka \
+    -G ${GROUP} \
     -M 8000 \
-    -q oversubscribed \
-    -W 120:00 \
+    -q ${QUEUE} \
+    -W ${RUNTIME_LIMIT}:00 \
     -R 'span[hosts=1] select[mem>8000] rusage[mem=8000]' \
     -o logs/${prefix}/${WORKFLOW}-%J.out \
     -e logs/${prefix}/${WORKFLOW}-%J.err \

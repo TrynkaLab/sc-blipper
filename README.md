@@ -26,15 +26,19 @@ Once installed and setup I reccomend running through the wrapper script `sc-blip
 General pipeline usage for sanger farm-22 is as such 
 
 ```
-Usage: sc-blipper <cnmf|enrich|convert> [-c <file.nf>] [-l] -- [nextflow pipeline args]
-<cnmf|enrich|convert>     The workflow to run
--c                        <path/to/config.nf> Nextflow config file for the run
--l                        Run nextflow locally instead of submitting to oversubscribed
---                        The rest is passed to nextlfow and overrides -c
+Usage: /software/teamtrynka/installs/sc-blipper/sc-blipper <cnmf|enrich|convert> [-c <file.nf>] [-lqtw] [-w workdir] -- [nextflow pipeline args]
+<cnmf|enrich|convert>           The workflow to run
+-c                              <path/to/config.nf> Nextflow config file for the run
+-l                              Run nextflow locally instead of submitting to oversubscribed
+-w                              Set the nextflow work directory (default: ../workdir)
+-q                              Set the queue for the nextflow job (default: oversubscribed)
+-w                              Set the time limit for the nextflow job (hours) (default: 120)
+-- The rest is passed to nextlfow and overrides -c
+
 
 Examples:
 sc-blipper enrich -c conf.nf -l
-sc-blipper enrich -c conf.nf -- --rn_runname hello_world --enrich.input_matrix matrix.tsv
+sc-blipper enrich -c conf.nf -w /path/to/workdir -- --rn_runname hello_world --enrich.input_matrix matrix.tsv
 ```
 
 For non sanger setups, the runner is fully configurable, mostly pointing to nextflow installs and setting env variables.
