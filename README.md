@@ -52,6 +52,10 @@ Add the following to your .bashrc
 # Set default LSF group, important for NF to work, change for your group here
 export LSB_DEFAULTGROUP=teamtrynka
 
+# Make conda available
+module load ISG/conda
+
+# Add the blipper executable to the path
 export PATH="$PATH:/software/teamtrynka/installs/sc-blipper/"
 ```
 
@@ -63,7 +67,7 @@ And thats it, you are good to go!
 
 # Installing (other configurations)
 
-1. Make sure you have nextflow available (>=25.04.6)
+1. Make sure you have nextflow (>=25.04.6) and conda available on your path
 2. Clone the repo
 3. Create a conda env following the instructions in requirements.txt (needs some manual pacakges, future will add singularity containers)
 4. Update `nextflow.config` or override with your config the path to the conda env (`params.rn_conda=/path/to/env"`)
