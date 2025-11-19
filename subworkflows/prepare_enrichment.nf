@@ -23,10 +23,21 @@ workflow perpare_enrichment {
         id_linker = fetch_id_linker.out.id_linker
         id_linker_inv = fetch_id_linker.out.id_linker_inv
         ensembl_reference = fetch_id_linker.out.ensembl_reference
+        is_ensembl = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)
+
 
         // Channel with gmt files
         if (params.enrich.gmt_files != null) {
-            gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
+            
+            if (params.enrich.gmt_files == 'DEFAULT') {
+                if (is_ensembl) {
+                    gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/ensembl/*.gmt")
+                } else {
+                    gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/symbols/*.gmt")
+                }
+            } else {
+                gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
+            }
         } else {
             gmt_files = Channel.empty()
         }

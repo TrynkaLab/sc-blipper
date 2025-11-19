@@ -129,7 +129,15 @@ workflow cnmf {
             
             // Channel with gmt files
             if (params.enrich.gmt_files != null) {
-                gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
+                if (params.enrich.gmt_files == 'DEFAULT') {
+                    if (is_ensembl) {
+                        gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/ensembl/*.gmt")
+                    } else {
+                        gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/symbols/*.gmt")
+                    }
+                } else {
+                    gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()
+                }
             } else {
                 if (params.cnmf.run_gsea || params.cnmf.run_ora) {
                     throw new Exception('No enrich.gmt files specified, but cnmf.run_gsea and or cnmf.run_ora is true')

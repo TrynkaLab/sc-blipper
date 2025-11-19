@@ -83,7 +83,7 @@ A run can be configured using a nextflow config file supplied to `sc-blipper -c 
 
 # Note on gmt files
 
-Reference pathways are provided as .gmt files in the assets folder. The ones you want to use can bet set with `enrich.gmt_files`. By default none are set. They are bundled in two flavours, as ensembl id or as gene symbols. For a description of bundled datasets, see `assets/README.md`
+Reference pathways are provided as .gmt files in the assets folder. The ones you want to use can bet set with `enrich.gmt_files`. By default all are used, valid values are null, 'DEFAULT' or a string with a comma seperated list of paths. They are bundled in two flavours, as ensembl id or as gene symbols, by default the pipeline will auto match to your target namespace, if providing manually make sure to use the right namespace. For a description of bundled datasets, see `assets/README.md`
 
 # Note on gene ids
 The pipeline runs on either gene symbols if `convert.is_ensembl_id=false` or on ensembl id if `convert.is_ensembl_id=true`.
