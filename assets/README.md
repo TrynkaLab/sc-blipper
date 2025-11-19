@@ -1,4 +1,27 @@
 
+# Markers
+
+
+## CD4_markers
+These have been manually curated 
+
+## lambert_2018_tfs
+List of transcription factors curated by lambert et al. https://pubmed.ncbi.nlm.nih.gov/29425488/
+
+## cui_2023_cytokines
+List of 86 cytokines from supplementary table 1: https://www.nature.com/articles/s41586-023-06816-9#Sec34
+plus some extra chemokine and GZM additions
+GZMB
+GZMA
+GZMK
+CCL1
+CCL3
+CCL4
+CCL4L2
+CCL3L1
+CXCL8
+CCL5
+
 
 # Genesets
 

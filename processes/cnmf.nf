@@ -315,6 +315,8 @@ process cnmf_summarize {
         val(id)
         tuple val(k), path(spectra_file), path(enrich_file)
         path(marker_file)
+        path(tf_file)
+        path(cyto_file)
     output:
         path("${id}*.pdf", emit: plots)
         path("${id}*.tsv", emit: summary)
@@ -349,6 +351,14 @@ process cnmf_summarize {
         
         if (marker_file.getFileName().toString() != "NO_MARKER") {
             cmd += " --annot ${marker_file}"
+        }
+        
+        if (tf_file.getFileName().toString() != "NO_TF") {
+            cmd += " --tfFile ${tf_file}"
+        }
+        
+        if (cyto_file.getFileName().toString() != "NO_CYTO") {
+            cmd += " --cytoFile ${cyto_file}"
         }
     
         cmd

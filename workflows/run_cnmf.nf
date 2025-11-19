@@ -286,17 +286,26 @@ workflow cnmf {
             summarize_in = cnmf_out.spectra_score.map{row -> tuple(row[0], row[1], file("NO_ENRICH"))}
         }
         
-        if (params.cnmf.summarize.marker_file == null) {
-            marker_file = Channel.value(file("NO_MARKER"))
-        } else if (params.cnmf.summarize.marker_file == "DEFAULT") {
-            if (is_ensembl) {
-                marker_file = Channel.value(file("${projectDir}/assets/markers/CD4_markers_ensembl.tsv"))
-            } else {
-                marker_file = Channel.value(file("${projectDir}/assets/markers/CD4_markers_gene_name.tsv"))
-            }
-        } else {
-            marker_file = Channel.value(file(params.cnmf.summarize.marker_file))
+        // Compact selection of marker / tf / cyto files
+        def chooseFile = { paramVal, defaultPath, noTag ->
+            if (paramVal == null) Channel.value(file("NO_${noTag}"))
+            else if (paramVal == "DEFAULT") Channel.value(file(defaultPath))
+            else Channel.value(file(paramVal))
         }
 
-        cnmf_summarize(params.rn_runname, summarize_in, marker_file)
+        def suffix = is_ensembl ? "_ensembl.tsv" : "_gene_name.tsv"
+
+        marker_file = chooseFile(params.cnmf.summarize.marker_file,
+                                "${projectDir}/assets/markers/CD4_markers${suffix}",
+                                "MARKER")
+
+        tf_file = chooseFile(params.cnmf.summarize.tf_file,
+                            "${projectDir}/assets/markers/lambert_2018_tfs${suffix}",
+                            "TF")
+
+        cyto_file = chooseFile(params.cnmf.summarize.cyto_file,
+                            "${projectDir}/assets/markers/cytokines${suffix}",
+                            "CYTO")
+                       
+        cnmf_summarize(params.rn_runname, summarize_in, marker_file, tf_file, cyto_file)
 }

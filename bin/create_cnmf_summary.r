@@ -4,6 +4,7 @@ suppressPackageStartupMessages({
   library(optparse)
   library(data.table)
   library(reshape2)
+  library(ggplot2)
 })
 
 #-------------------------------------------------------------------------------
@@ -118,6 +119,105 @@ plot_simple_hm <- function(data, cellsize = -1, cellwidth = 12, cellheight = 12,
   return(ggplotify::as.ggplot(res$gtable))
 }
 
+# Creates a profile plot for a given GEP
+plot.top.k.genesets <- function(spectra, gep, k=20, cyto=NULL, tfs=NULL) {
+  
+  cur <- spectra[,gep]
+  
+  plots <- list()
+  
+  gepname <- paste0("GEP", gep)
+  
+  # Top k genes
+  cur <- sort(cur, decreasing = T)
+  genes <- names(cur)
+  cur <- scale(cur)
+  
+  
+  p0 <- ggplot(data.frame(y=cur), aes(x=y, fill = after_stat(x))) +
+    theme_classic()+
+    geom_histogram(bins=100) +
+    xlab(paste0(gepname, " - scaled spectra score")) +
+    scale_fill_viridis_c(limits=range(cur), name="GEP spectra\nscaled", option='H') +
+    ggtitle(paste0(gepname, " profile")) +
+    theme(plot.title = element_text(hjust = 0.5))
+  plots[["hist"]] <- p0
+  
+  df.plot       <- data.frame(y=cur[1:k], genes=genes[1:k])
+  df.plot$genes <- factor(df.plot$genes, levels=df.plot$genes)
+  df.plot$gepname <- gepname
+  p1 <- ggplot(df.plot, aes(x=genes, y=gepname, fill=y)) + 
+    geom_tile() +
+    scale_fill_viridis_c(limits=range(cur), name="GEP spectra\nscaled", option='H') +
+    theme_classic()+
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        plot.title = element_text(hjust = 0.5)) +
+    ggtitle(paste0("Top ", k," genes"))
+  
+  plots[["top_genes"]] <- p1
+  
+  if (!is.null(cyto)) {
+    cur.cyto <- cur[genes %in% cyto]
+    cur.cyto.gene  <- genes[genes %in% cyto]
+    
+    names(cur.cyto) <- cur.cyto.gene
+    cur.cyto        <- sort(cur.cyto, decreasing = T)  
+    
+    k.cyto <- min(k, length(cur.cyto))
+    
+    df.plot       <- data.frame(y=cur.cyto[1:k.cyto], genes=names(cur.cyto)[1:k.cyto])
+    df.plot$genes <- factor(df.plot$genes, levels=df.plot$genes)
+    df.plot$gepname <- gepname
+    
+    p2 <- ggplot(df.plot, aes(x=genes, y=gepname, fill=y)) + 
+      geom_tile() +
+      scale_fill_viridis_c(limits=range(cur), name="GEP spectra\nscaled", option='H') +
+      theme_classic()+
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+            axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            axis.ticks.y=element_blank(),
+            plot.title = element_text(hjust = 0.5)) +
+      ggtitle(paste0("Top ", k.cyto ," cytokine genes"))
+    
+    plots[["top_cyto_genes"]] <- p2
+  }
+  
+  if (!is.null(tfs)) {
+    cur.tfs <- cur[genes %in% tfs]
+    cur.tfs.gene  <- genes[genes %in% tfs]
+    
+    names(cur.tfs) <- cur.tfs.gene
+    cur.tfs        <- sort(cur.tfs, decreasing = T)  
+    
+    k.tfs <- min(k, length(cur.tfs))
+    
+    df.plot       <- data.frame(y=cur.tfs[1:k.tfs], genes=names(cur.tfs)[1:k.tfs])
+    df.plot$genes <- factor(df.plot$genes, levels=df.plot$genes)
+    df.plot$gepname <- gepname
+    
+    p3 <- ggplot(df.plot, aes(x=genes, y=gepname, fill=y)) + 
+      geom_tile() +
+      scale_fill_viridis_c(limits=range(cur), name="GEP spectra\nscaled", option='H') +
+      theme_classic()+
+      theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+            axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            axis.ticks.y=element_blank(),
+            plot.title = element_text(hjust = 0.5)) +
+      ggtitle(paste0("Top ", k.tfs ," TF genes"))
+    
+    plots[["top_TF_genes"]] <- p3
+  }
+  
+  plot <- cowplot::plot_grid(plotlist=plots, ncol=1, rel_heights = c(2, 1, 1, 1), rel_widths=c(0.9, 1,1,1))
+  return(plot)
+  
+}
+
 
 #-------------------------------------------------------------------------------
 # Option Parsing
@@ -153,7 +253,14 @@ option_list <- list(
               help="Scale the spectra matrix [default: %default]"),
 
   make_option(c("-o", "--output"), type="character", default="output.tsv",
-              help="Output prefix [default: %default]")
+              help="Output prefix [default: %default]"),
+              
+  make_option(c("--tfFile"), type="character", default=NULL,
+              help="Transcription factor file (one gene per line) [default: %default]"),
+
+  make_option(c("--cytoFile"), type="character", default=NULL,
+              help="Cytokine/marker file (one gene per line) [default: %default]")
+  
 )
 
 opt <- parse_args(OptionParser(option_list=option_list))
@@ -172,6 +279,8 @@ log.spectra <- opt$logSpectra
 scale.spectra <- opt$scaleSpectra
 output.prefix <- opt$output
 enrich.threshold <- opt$threshold
+tf.file <- opt$tfFile
+cyto.file <- opt$cytoFile
 
 if (is.null(spectra.file)) {
   stop("You must provide a spectra file with -S / --spectra")
@@ -191,6 +300,33 @@ spectra     <- t(spectra)
 top.spectra <- apply(apply(spectra, 2, function(x){rownames(spectra)[order(x, decreasing = T)]})[1:top.n,], 2, paste0, collapse=sep)
 top.mat     <- data.frame(top_gep_genes=top.spectra)
 cat("[INFO] read spectra\n")
+#-------------------------------------------------------------------------------
+# Create a profile overview for each gep
+
+nrows <- 3
+
+if (!is.null(tf.file)) {
+  tfs <- fread(tf.file, data.table=F)[,1]
+  nrows <-  nrows+1
+} else {
+  tfs <- NULL
+}
+
+if (!is.null(cyto.file)) {
+  cyto <- fread(cyto.file, data.table=F)[,1]
+  nrows <-  nrows+1
+  
+} else {
+  cyto <- NULL
+}
+
+pdf(width=6, height=(nrows*1.5), file=paste0(output.prefix, "_gep_profiles.pdf"))
+for (gep in 1:ncol(spectra)) {
+  p <- plot.top.k.genesets(spectra, gep, cyto=cyto, tfs=tfs)
+  plot(p)
+}
+dev.off()
+
 #-------------------------------------------------------------------------------
 # Enrichment
 if (!is.null(enrichment.file)) {
