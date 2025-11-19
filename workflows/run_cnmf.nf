@@ -131,9 +131,9 @@ workflow cnmf {
             if (params.enrich.gmt_files != null) {
                 if (params.enrich.gmt_files == 'DEFAULT') {
                     if (is_ensembl) {
-                        gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/ensembl/*.gmt")
+                        gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/ensembl/*.gmt").collect()
                     } else {
-                        gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/symbols/*.gmt")
+                        gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/symbols/*.gmt").collect()
                     }
                 } else {
                     gmt_files = Channel.from(params.enrich.gmt_files.split(",")).collect()

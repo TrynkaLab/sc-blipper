@@ -365,6 +365,24 @@ if (!is.null(enrichment.file)) {
       # Convert to matrix
       top.agg <- acast(top.agg, condition ~ test, value.var = "trait")
       
+      # Ensure rows exactly match colnames(spectra) (GEP order).  
+      # Add missing rows filled with NA and reorder as needed.
+      desired_rows <- colnames(spectra)
+      if (is.null(dim(top.agg))) {
+        # If acast returned a vector (no columns), create empty matrix with desired rows
+        top.agg <- matrix(NA, nrow=length(desired_rows), ncol=0,
+                          dimnames = list(desired_rows, character(0)))
+      } else {
+        missing_rows <- setdiff(desired_rows, rownames(top.agg))
+        if (length(missing_rows) > 0L) {
+          add_mat <- matrix(NA, nrow=length(missing_rows), ncol=ncol(top.agg),
+                            dimnames = list(missing_rows, colnames(top.agg)))
+          top.agg <- rbind(top.agg, add_mat)
+        }
+        # Reorder rows to match desired order (preserves NA rows for missing entries)
+        top.agg <- top.agg[desired_rows, , drop=FALSE]
+      }
+            
       top.mat <- cbind(top.mat, top.agg[colnames(spectra),])
   } else {
     warning("[WARN] No enrichment records left after filtering\n")
