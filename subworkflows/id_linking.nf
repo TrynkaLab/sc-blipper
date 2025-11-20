@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 include { fetch_gene_id_reference; invert_id_link } from "../processes/utils.nf"
+include { filter_biotype } from "../processes/utils.nf"
+
 
 workflow fetch_id_linker {
 

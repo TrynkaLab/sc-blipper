@@ -19,9 +19,21 @@ workflow cnmf {
     //TODO: make gene linker file ids unique
     main:
         //------------------------------------------------------------
-        // Sanity check input
-        if (params.cnmf.n_workers >= (params.cnmf.n_iter * params.cnmf.k.split(",").size())) {
-            throw new Exception("Number of workers (cnmf.n_workers) cannot exceed number of cnmf runs (cnmf.n_iter * cnmf.k.size())")
+        // Determine the number of cnmf workers
+        int total_cnmf_runs = params.cnmf.n_iter * params.cnmf.k.split(",").size()
+        int cnmf_workers = 0
+        
+        if (params.cnmf.n_workers == null || params.cnmf.n_workers < 0 || params.cnmf.n_workers == 1) {
+            cnmf_workers = (total_cnmf_runs - 1).toInteger()
+        } else if (params.cnmf.n_workers > 0 && params.cnmf.n_workers < 1) {
+            // fractional: interpret as proportion of total runs
+            cnmf_workers = (total_cnmf_runs * params.cnmf.n_workers.toDouble()).toInteger()
+        } else {
+            cnmf_workers = params.cnmf.n_workers.toInteger()
+        }
+        
+        if (cnmf_workers >= total_cnmf_runs || cnmf_workers < 2) {
+            throw new Exception("Number of workers (cnmf.n_workers) cannot exceed number of cnmf runs (cnmf.n_iter * cnmf.k.size()) or be smaller then 2")
         }
         
         //------------------------------------------------------------
@@ -72,11 +84,11 @@ workflow cnmf {
         
         // Create the channel with the n_workers for jobs to run in parallel
         cnmf_factorize_in = cnmf_prepared
-         .map { v -> (0..(params.cnmf.n_workers-1)).collect{ i -> tuple(*v, i) } }
+         .map { v -> (0..(cnmf_workers-1)).collect{ i -> tuple(*v, i) } }
          .flatMap()
         
         // Perform the factorizations
-        cnmf_factorize_out = cnmf_factorize(cnmf_factorize_in)
+        cnmf_factorize_out = cnmf_factorize(cnmf_factorize_in, cnmf_workers)
         
         // Wait for all the workers to complete, then:
         // Flatten all the output into a single path object
@@ -291,7 +303,7 @@ workflow cnmf {
         if (params.cnmf.run_enrichment) {
             summarize_in = cnmf_out.spectra_score.map{row -> tuple("k_${row[0]}", row[1])}.combine(concat_enrichment_results_per_k.out.std_nominal, by: 0)
         } else {
-            summarize_in = cnmf_out.spectra_score.map{row -> tuple(row[0], row[1], file("NO_ENRICH"))}
+            summarize_in = cnmf_out.spectra_score.map{row -> tuple("k_${row[0]}", row[1], file("NO_ENRICH"))}
         }
         
         // Compact selection of marker / tf / cyto files

@@ -93,6 +93,7 @@ process cnmf_factorize {
     
     input:
         tuple val(id), path(file, name: "tmp/*"), val(worker_index)
+        val n_workers
     output:
         //tuple val(id), path("${id}/cnmf_tmp/*.df.npz")
         path("${id}/cnmf_tmp/*.k_*.iter_*.df.npz", emit: files)
@@ -114,7 +115,7 @@ process cnmf_factorize {
         --output-dir ./ \
         --name ${id} \
         --worker-index ${worker_index} \
-        --total-workers ${params.cnmf.n_workers}
+        --total-workers ${n_workers}
         """
     
         cmd
