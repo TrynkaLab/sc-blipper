@@ -251,6 +251,10 @@ for (gmt_file in gmt_files) {
 }
 
 res                  <- as.data.frame(do.call(rbind, results))
+
+# Fill missing genes with NA so they are parsed properly
+res[sapply(res$overlapGenes, length) ==0,"overlapGenes"] <- list(NA)
+
 res[,"overlapGenes"] <- sapply(res[,"overlapGenes"], paste0, collapse=",")
 out_file             <- paste0(opt$output_prefix, "_ora_results.tsv")
 write.table(res, out_file, sep="\t", quote=F, row.names=F)
