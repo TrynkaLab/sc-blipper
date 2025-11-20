@@ -31,6 +31,10 @@ workflow fetch_id_linker {
                 id_linker_inv = ensembl_reference.ensembl_to_name
             }
         }
+        
+        if (params.rn_biotype_filter != null) {
+            biotype_filtered = filter_biotype(ensembl_reference.ensembl)
+        }
         //}
         //else {
         //    // No mapping

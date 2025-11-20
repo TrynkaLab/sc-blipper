@@ -1,7 +1,6 @@
 
 # Markers
 
-
 ## CD4_markers
 These have been manually curated 
 
@@ -24,7 +23,7 @@ CCL5
 
 
 # Genesets
-
+Genesets are divided into ensembl, for ensembl id files, symbols for gene name files, an non_active (files not used by default). To add genesets make sure the extension ends in ensembl.gmt or .symbols.gmt and place it in the appropriate folder. To add a non-active geneset to the default set, add it to the appropriate folder. Any files in the ensembl or symbols folders will get used. To make sure you get the same output regardless of what Id you are using, populate files for both id types, otherwise results will vary between ensembl ids and gene names.
 
 ## List of genesets
 

@@ -39,3 +39,37 @@ process invert_id_link {
 }
 
 
+process filter_biotype {
+    label "tiny"
+    publishDir "$params.rn_publish_dir/reference/ensembl", mode: 'copy'
+
+    input:
+        path(ensembl_file)
+    output:
+        path("*_biotype_filtered.ensembl.txt", emit: biotype_ensembl)
+        path("*_biotype_filtered.gene_names.txt", emit: biotype_gene_names)
+    script:
+    
+    if (params.rn_biotype_filter == null) {
+        error "Biotype filter parameter is not set but process is called."
+    }
+    
+    cmd =
+    """
+    # Filter ensembl file by biotype using egrep pattern from config
+    cat ${ensembl_file} | \
+    egrep ${params.rn_biotype_filter}} | \
+    awk '{print \$1}' > \
+    \$(basename ${ensembl_file} | sed 's/.tsv/_biotype_filtered.ensembl.txt/g')
+    
+    # Also create a version with gene names
+    cat ${ensembl_file} | \
+    egrep ${params.rn_biotype_filter}} | \
+    awk '{print \$2}' > \
+    \$(basename ${ensembl_file} | sed 's/.tsv/_biotype_filtered.gene_names.txt/g')
+    """
+    
+    cmd
+}
+
+
