@@ -15,7 +15,7 @@ process cnmf_pre_process {
         path("*.Corrected.HVG.Varnorm.h5ad", emit: corrected)
         path("*.TP10K.h5ad", emit: normalized)
         path("*.Corrected.HVGs.txt", emit: hvg)
-        tuple val(id), path("*.Corrected.HVG.Varnorm.h5ad"), emit: preproccessed
+        tuple val(id), path("*.Corrected.HVG.Varnorm.h5ad"), emit: preprocessed
         
     script:
         cmd = "run_preprocess.py -i ${file} -o ${id}"
@@ -28,8 +28,8 @@ process cnmf_pre_process {
             cmd += " --seed ${params.cnmf.seed}"
         }
         
-        if (params.cnmf.n_variable != null) {
-            cmd += " --n_variable ${params.cnmf.n_variable}"
+        if (params.preprocess.n_variable != null) {
+            cmd += " --n_variable ${params.preprocess.n_variable}"
         }
         
         if (params.cnmf.feature_type_col != null) {
@@ -66,7 +66,7 @@ process cnmf_prepare {
         -k ${params.cnmf.k.split(",").join(' ')} \
         --n-iter ${params.cnmf.n_iter} \
         --seed ${params.cnmf.seed} \
-        --numgenes ${params.cnmf.n_variable}\
+        --numgenes ${params.preprocess.n_variable}\
         """
         
         // Add the TPM matrix/h5ad to calculate the gene scores

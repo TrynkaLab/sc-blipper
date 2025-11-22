@@ -11,12 +11,12 @@ process seurat_to_h5ad {
     publishDir "$params.rn_publish_dir/h5ad/per_batch/${params.rn_runname}", mode: 'symlink'
     
     input:
-        tuple val(id), path(file), val(convert_ids)
+        tuple val(id), path(file), val(convert_ids), path(subset_file)
         path(mapping_file)
-        path(subset_file)
     output:
         tuple val(id), path("${id}.h5ad"), emit: h5ad
         path("${id}_unmapped_genes.txt", optional: true)
+        path("${id}*.log", optional: true, emit: log)
     script:
     
         if (mapping_file.getFileName().toString() == "NO_MAPPING" || !convert_ids) {
@@ -28,6 +28,12 @@ process seurat_to_h5ad {
         if (subset_file.getFileName().toString() != "NO_SUBSET") {
             cmd += " -f ${subset_file}"
         }
+        
+        cmd += 
+        """
+        cat .command.log > ${id}.log
+        """
+        
         cmd
 }
 
@@ -42,12 +48,12 @@ process link_h5ad {
     publishDir "$params.rn_publish_dir/h5ad/per_batch/${params.rn_runname}", mode: 'symlink'
     
     input:
-        tuple val(id), path(file, name: "input.h5ad"), val(convert_ids)
+        tuple val(id), path(file, name: "input.h5ad"), val(convert_ids), path(subset_file)
         path(mapping_file)
-        path(subset_file)
     output:
         tuple val(id), path("${id}.h5ad"), emit: h5ad
         path("${id}_unmapped_genes.txt", optional: true)
+        path("${id}*.log", optional: true, emit: log)
     script: 
         if ((mapping_file.getFileName().toString() == "NO_MAPPING" || !convert_ids) && subset_file.getFileName().toString() == "NO_SUBSET") {
             cmd  =
@@ -80,6 +86,10 @@ process link_h5ad {
             }
         }
         
+        cmd += 
+        """
+        cat .command.log > ${id}.log
+        """
         cmd
     
 }

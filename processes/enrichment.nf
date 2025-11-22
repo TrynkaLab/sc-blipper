@@ -12,15 +12,16 @@ process preprocess_matrix {
     input:
         val(prefix)
         tuple val(id), file(path), val(transpose), file(id_linker), file(universe)
+        path(subset_genes)
     output:
         tuple val(id), file("${id}_processed_matrix.tsv"), emit: matrix
-        path("${id}_processed_matrix.log", emit: log )
+        path("${id}*.log", emit: log )
     script:
     cmd =
     """
     table_proccessor.py \
     --input ${path} \
-    --output ${id}_processed_matrix.tsv\
+    --output ${id}_processed_matrix.tmp\
     """
     
     if (transpose) { 
@@ -38,8 +39,23 @@ process preprocess_matrix {
         if (id_linker.getFileName().toString() != "NO_MAPPING") { 
             cmd += " --update-rows ${id_linker}"
         }
-    }    
+    }   
     
+    if (subset_genes.getFileName().toString() != "NO_SUBSET") {
+        cmd +=
+        """
+        table_proccessor.py \
+        --input ${id}_processed_matrix.tmp \
+        --output ${id}_processed_matrix.tsv \
+        --row-file ${subset_genes}
+        """
+    } else {
+        cmd += 
+        """
+        mv ${id}_processed_matrix.tmp ${id}_processed_matrix.tsv
+        """
+    }
+        
     cmd
 }
 

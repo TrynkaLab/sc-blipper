@@ -12,16 +12,11 @@ include { magma_base } from "../subworkflows/magma.nf"
 // Main workflow
 workflow magma {
     main:
-    
-        if (params.convert.convert_gene_names) {
-            throw new Exception("Currently magma workflow does not support gene name conversion as converting gene names in gmt is not implemented")
-        }
-        
+            
         //----------------------------------------------------------------------------------
         // Prepare the enrichment
         enrich = perpare_enrichment(params)
         input_matrix = enrich.input_matrix
-        converter = enrich.converter
         universe = enrich.universe
         gmt_files = enrich.gmt_files
         id_linker = enrich.id_linker

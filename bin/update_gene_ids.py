@@ -52,8 +52,12 @@ def update_gene_ids(adata, mapping_file, unmapped_file=None):
 def filter_genes(adata, filter_file, mapping_dict=None, mode="include"):
     """Filter AnnData object by genes; mode = 'include' or 'exclude'."""
     print(f"Filtering genes using {filter_file} (mode={mode}) ...")
-    filter_genes = pd.read_csv(filter_file, header=None, squeeze=True).astype(str).tolist()
-
+    # Read the filter file and convert to a list
+    filter_genes_df = pd.read_csv(filter_file, header=None)
+    filter_genes = filter_genes_df[0].astype(str).tolist()  # Access the first column
+    print(f"Gene list contains {len(filter_genes)} genes")
+    print(f"adata has {adata.shape} cells x genes before filter")
+    
     # If mapping provided, update gene IDs in filter list too
     if mapping_dict is not None:
         filter_genes = [mapping_dict.get(g, g) for g in filter_genes]

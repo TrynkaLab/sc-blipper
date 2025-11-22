@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { cnmf_pre_process; cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize } from "../processes/cnmf.nf"
+include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
@@ -11,8 +11,8 @@ include { concat_enrichment_results as concat_enrichment_results_per_k } from ".
 
 // Subworkflows
 include { fetch_id_linker } from "../subworkflows/id_linking.nf"
-include { convert_and_merge } from "../subworkflows/convert_merge.nf"
 include { magma_base } from "../subworkflows/magma.nf"
+include { cnmf_stage } from "../subworkflows/cnmf_stage.nf"
 
 // Main workflow
 workflow cnmf {
@@ -41,47 +41,21 @@ workflow cnmf {
         fetch_id_linker(params.rn_ensembl_version, params.convert)
         
         // Add the output in the global space for convenience
-        id_linker         = fetch_id_linker.out.id_linker
-        id_linker_inv     = fetch_id_linker.out.id_linker_inv
-        ensembl_reference = fetch_id_linker.out.ensembl_reference
-        is_ensembl        = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)
-        
-        if (params.convert.convert_gene_names) {
-            converter = id_linker
-        } else {
-            converter = Channel.value(file("NO_MAPPING"))
-        }   
-        
-        //------------------------------------------------------------ 
-        // Merge seurat and H5 files
-        convert_and_merge(params.rn_manifest, params.rn_runname, converter, params.convert.subset_genes)
-        
-        merge_out = convert_and_merge.out.merge_out
-        
-        //--------------------------------------------------------
-        // Optionally run cNMF preprocessing, which creates harmony corrected counts
-        if (params.cnmf.preprocess) {
-            // Preprocess the cnmf file
-            cnmf_preprocess = cnmf_pre_process(merge_out)
-            
-            // Channel with run name and .h5ad file with counts
-            cnmf_in = cnmf_preprocess.preproccessed
-            cnmf_in_tpm = cnmf_preprocess.normalized
-            cnmf_in_hvg = cnmf_preprocess.hvg
-        } else {
-            // Otherwise use the merged file, in case there is one batch,
-            // just uses the other file
-            cnmf_in = merge_out
-            cnmf_in_tpm = Channel.value(file("NO_TPM"))
-            cnmf_in_hvg = Channel.value(file("NO_HVG"))
-        }
-            
+        is_ensembl = params.convert.output_namespace == 'ensembl'
+    
         //--------------------------------------------------------
         //                       cNMF
         //--------------------------------------------------------
-        // Prepare the cnmf input folder 
-        cnmf_prepared = cnmf_prepare(cnmf_in, cnmf_in_tpm, cnmf_in_hvg)
+        // Stage and preprocess (batch correct) the cNMF files
+        cnmf_staged = cnmf_stage(fetch_id_linker.out.id_linker,
+                   fetch_id_linker.out.biotype_ensembl,
+                   fetch_id_linker.out.biotype_gene_name)
         
+        // Prepare the cnmf input folder 
+        cnmf_prepared = cnmf_prepare(cnmf_staged.cnmf_in,
+                                     cnmf_staged.cnmf_in_tpm,
+                                     cnmf_staged.cnmf_in_hvg)
+         
         // Create the channel with the n_workers for jobs to run in parallel
         cnmf_factorize_in = cnmf_prepared
          .map { v -> (0..(cnmf_workers-1)).collect{ i -> tuple(*v, i) } }
@@ -104,7 +78,7 @@ workflow cnmf {
         
         // Create consensus with or without h5ad
         if (params.cnmf.save_h5ad) {
-            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, cnmf_in.map{row -> row[1]})
+            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, cnmf_staged.cnmf_in.map{row -> row[1]})
         } else {
             cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
         }
@@ -220,10 +194,9 @@ workflow cnmf {
                 } else {
                     decoupler_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
                 }
-                //is_ensembl = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)          
                 if (is_ensembl) {
                     // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
-                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, id_linker_inv) 
+                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, fetch_id_linker.out.id_linker_inv) 
                 } else {
                     // This assumes you have converted to gene symbols
                     decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
@@ -238,7 +211,7 @@ workflow cnmf {
             // Run magma
             if (params.cnmf.run_magma) {
                 
-                magma_base(params.magma, params.convert, params.rn_ensembl_version, ensembl_reference)
+                magma_base(params.magma, params.convert, params.rn_ensembl_version, fetch_id_linker.out.ensembl_reference)
                 
                 // Magma association with cnmf
                 if (params.cnmf.k_ignore != null) {

@@ -10,10 +10,15 @@ workflow fetch_id_linker {
         convert_params
 
     main:
+    
+        // Sanity check
+        if (convert_params.output_namespace !in ['ensembl', 'gene_name']) {
+            error "convert.output_namespace must be one of 'ensembl' or 'gene_name'"
+        }    
+        
         // Always fetch this even if not used
         ensembl_reference = fetch_gene_id_reference(version)
 
-        //if (!convert_params.is_ensembl) {
         if (convert_params.id_linker) {
             id_file = file(convert_params.id_linker)
             if (!id_file.exists()) {
@@ -23,7 +28,7 @@ workflow fetch_id_linker {
             id_linker_inv = invert_id_link(id_linker)
 
         } else {
-            if (params.convert.is_ensembl_id) {
+            if (convert_params.output_namespace == 'gene_name') {
                 // ENSEMBL → gene name
                 id_linker     = ensembl_reference.ensembl_to_name
                 id_linker_inv = ensembl_reference.name_to_ensembl
@@ -34,8 +39,13 @@ workflow fetch_id_linker {
             }
         }
         
-        if (params.rn_biotype_filter != null) {
+        if (convert_params.biotype_filter != null) {
             biotype_filtered = filter_biotype(ensembl_reference.ensembl)
+            biotype_ensembl=biotype_filtered.biotype_ensembl
+            biotype_gene_name=biotype_filtered.biotype_gene_name
+        } else {
+            biotype_ensembl=Channel.value(file("NO_SUBSET"))
+            biotype_gene_name=Channel.value(file("NO_SUBSET"))
         }
         //}
         //else {
@@ -49,4 +59,6 @@ workflow fetch_id_linker {
         ensembl_reference = ensembl_reference.ensembl
         id_linker = id_linker
         id_linker_inv = id_linker_inv
+        biotype_ensembl=biotype_ensembl
+        biotype_gene_name=biotype_gene_name
 }
