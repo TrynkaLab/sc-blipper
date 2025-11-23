@@ -13,7 +13,7 @@ workflow cnmf_stage {
         
         //------------------------------------------------------------ 
         // Prepare cnmf channels
-        if (params.cnmf.input.h5ad && params.cnmf.input.tpm && params.cnmf.input.hvg) {
+        if (params.cnmf.input.h5ad != null && params.cnmf.input.tpm != null && params.cnmf.input.hvg != null) {
             // Override with previous output
             cnmf_in = Channel.value(tuple(params.rn_runname, file(params.cnmf.input.h5ad)))
             cnmf_in_tpm = Channel.value(file(params.cnmf.input.tpm))
