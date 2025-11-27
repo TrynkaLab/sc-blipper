@@ -19,6 +19,8 @@ The manifest should have the columns id, file,	namespace and each row represents
 
 The manifest is provided as the parameter 'rn_manifest'.
 
+Several example config files are provided in conf/examples
+
 ```
 Usage: /software/teamtrynka/installs/sc-blipper/sc-blipper <cnmf|enrich|convert> [-c <file.nf>] [-lqtw] [-w workdir] -- [nextflow pipeline args]
 <cnmf|enrich|convert>           The workflow to run
