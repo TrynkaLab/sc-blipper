@@ -405,6 +405,7 @@ if (!is.null(annot.file)) {
   }
   if (scale.spectra) {
     m2 <- scale(m2)
+    m2[is.na(m2)] <- 0
   }
   
   # Cluster 

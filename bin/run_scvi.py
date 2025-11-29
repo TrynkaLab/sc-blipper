@@ -179,7 +179,7 @@ def main(args):
             
         logging.info("Generating and saving UMAP plots for TP10K and scVI denoised data")
         
-        fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+        fig, axes = plt.subplots(1, 2, figsize=(15, 7.5))
 
         # -------------------- add TP10K HVG UMAP  --------------------
         # Subset tp10k to the previously computed HVGs, log1p, run PCA + UMAP and save plot
