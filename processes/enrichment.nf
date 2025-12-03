@@ -88,6 +88,7 @@ process gsea {
     run_gsea.r \
     --output_prefix ${id} \
     --matrix ${file} \
+    --max_genes ${params.enrich.max_pathway_size} \
     --gmt ${gmt_files.join(',')} \
     """
     
@@ -146,6 +147,7 @@ process ora {
     --output_prefix ${id} \
     --matrix ${file} \
     --gmt ${gmt_files.join(',')} \
+    --max_genes ${params.enrich.max_pathway_size} \
     --threshold ${threshold} \
     """
     

@@ -100,6 +100,9 @@ option_list <- list(
   make_option(c("-u", "--universe"),
               type = "character", default = NA,
               help = "Optional gene universe file (one gene per line). Defaults to all genes in the matrix."),
+  make_option(c("--max_genes"),
+              type = "numeric", default = 2000,
+              help = "Maximum pathway size to consider. Default: 2000"),
   make_option(c("--update_rows"),
               type = "character", help = "Path to file with 'old' 'new' ids. Aplied after transpose", default=NULL)
 )
@@ -113,6 +116,9 @@ if (any(is.null(opt$matrix), is.null(opt$gmt), is.null(opt$output_prefix))) {
   print_help(opt_parser)
   stop("Error: --matrix, --gmt, and --output_prefix are required.", call. = FALSE)
 }
+
+# Set max number of genes
+max.genes <- as.numeric(opt$max_genes)
 
 # Load numeric matrix (genes in rows, columns are samples or contrasts)
 mat           <- fread(opt$matrix, data.table=FALSE, header=T)
@@ -165,7 +171,7 @@ for (gmt_file in gmt_files) {
     fgsea_res <- fgsea(pathways = pathways,
                        stats = ranks,
                        minSize = 5,
-                       maxSize = 500)
+                       maxSize = max.genes)
     
     fgsea_res$condition  <- col_name
     fgsea_res$condition2 <- "GSEA"

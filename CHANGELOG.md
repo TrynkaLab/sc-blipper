@@ -11,9 +11,11 @@
   - config now has 'output_namespace' (either 'ensembl' or 'gene_name')
   - convert.convert_gene_ids is retired as conversion can be skipped if the namespace is matched
   - enrich.input_namespace controls ID conversion for enrich workflow (has no manifest)
+- Updated maximal pathway size for GSEA & ORA from 500 to 2000
 
 ### Bugfixes
 - Fixed bug when specifying filter list for link_h5ad
+- Fixed bug in create_cnmf_summary for cases with zero usage causing NAs in scaling leading to a crash
 
 ### Documentation
 - Updated parameter documentation
@@ -28,8 +30,10 @@
 - Added configuration block 'preprocess'
 - Added configuration block 'preprocess.scvi'
 - Added configuration block 'cnmf.input'
+- Added configuration 'enrich.max_pathway_size'
 - Removed convert.convert_gene_ids
 - Removed is_ensembl_id
+- Changed default cnmf.summarize.topn from 5 to 10
 
 ### Code strucutre
 - Created new subworkflow cnmf_stage to handle batch correction
