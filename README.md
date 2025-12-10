@@ -1,6 +1,7 @@
 # sc-blipper
-
 This is a nextflow pipeline for post-proccessing single cell RNAseq datasets and performing gene set enrichments.
+
+Please see the [dev branch](https://github.com/TrynkaLab/sc-blipper/tree/dev) for the latest updates. 
 
 On the whishlist to implement:
 - starCAT > inferring nmf usages based on a reference run
