@@ -1,5 +1,5 @@
 
-# v0.0.3-alpha (tbd)
+# v0.0.3-alpha (10-02-2026)
 
 ### Major changes
 - Added support for scVI
