@@ -40,6 +40,6 @@ if __name__ == "__main__":
     (adata_c, adata_tpm, hvgs) = p.preprocess_for_cnmf(adata,
                                                        harmony_vars=args.harmony_vars,
                                                        n_top_rna_genes=args.n_variable,
-                                                       librarysize_targetsum=1e6,
+                                                       librarysize_targetsum=1e4,
                                                        feature_type_col=args.feature_type_col,
                                                         save_output_base=args.output)

@@ -23,12 +23,16 @@ workflow perpare_enrichment {
         id_linker = fetch_id_linker.out.id_linker
         id_linker_inv = fetch_id_linker.out.id_linker_inv
         ensembl_reference = fetch_id_linker.out.ensembl_reference
-        is_ensembl = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)
-
-
+        is_ensembl = params.convert.output_namespace == "ensembl"
+        
+        if (is_ensembl) {
+            biotype_filter = fetch_id_linker.out.biotype_ensembl
+        } else {
+            biotype_filter = fetch_id_linker.out.biotype_gene_name
+        }
+        
         // Channel with gmt files
         if (params.enrich.gmt_files != null) {
-            
             if (params.enrich.gmt_files == 'DEFAULT') {
                 if (is_ensembl) {
                     gmt_files = Channel.fromPath("${projectDir}/assets/gene_sets/ensembl/*.gmt").collect()
@@ -47,12 +51,7 @@ workflow perpare_enrichment {
             universe = file(params.enrich.universe)
             if (!universe.exists()) {
                 throw new Exception("Supplied id universe file does not exist")
-            }
-            
-            if (params.convert.convert_gene_names) {
-                log.warn("Universe is not converted to output name space, so make sure it is matched to what you are converting to")
-            }
-            
+            }            
             // Custom conversion file
             universe = Channel.value(file(params.enrich.universe))
         } else {
@@ -65,35 +64,23 @@ workflow perpare_enrichment {
         // <name> <matrix> <transpose> <absolute> GSEA | ora_top | ora_thresh | decoupler | magma
         // foo    bar.tsv  T            T         T       F           T            T         F
         //input_matrix = Channel.value(tuple(params.rn_runname, params.enrich.input_matrix))
-        if (params.convert.convert_gene_names) {
-            converter = id_linker
-        } else {
-            converter = Channel.value(file("NO_MAPPING"))
-        }
-        
-        
         if (params.enrich.input_matrix == null) {
             throw new Exception("params.enrich.input_matrix cannot be null")
-        } else {
-            
+        } else {    
             if (params.enrich.input_matrix.endsWith(".gmt")) {
                 input_matrix = Channel.value(tuple(params.rn_runname, file(params.enrich.input_matrix)))
-                
             } else {
                 prep_in = Channel.value(tuple(params.rn_runname, params.enrich.input_matrix, params.enrich.transpose))
-                .combine(converter)
+                .combine(id_linker)
                 .combine(universe)
                 .map{row -> tuple(row[0], file(row[1]), row[2], file(row[3]), file(row[4]))}
 
-                input_matrix = preprocess_matrix("enrich/", prep_in).matrix
+                input_matrix = preprocess_matrix("enrich/", prep_in, biotype_filter).matrix
             }
         }
-        
-
-        
+   
     emit:
         input_matrix = input_matrix
-        converter = converter
         universe = universe
         gmt_files = gmt_files
         id_linker = id_linker

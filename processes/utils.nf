@@ -47,10 +47,10 @@ process filter_biotype {
         path(ensembl_file)
     output:
         path("*_biotype_filtered.ensembl.txt", emit: biotype_ensembl)
-        path("*_biotype_filtered.gene_names.txt", emit: biotype_gene_names)
+        path("*_biotype_filtered.gene_names.txt", emit: biotype_gene_name)
     script:
     
-    if (params.rn_biotype_filter == null) {
+    if (params.convert.biotype_filter == null) {
         error "Biotype filter parameter is not set but process is called."
     }
     
@@ -58,13 +58,13 @@ process filter_biotype {
     """
     # Filter ensembl file by biotype using egrep pattern from config
     cat ${ensembl_file} | \
-    egrep ${params.rn_biotype_filter} | \
+    egrep ${params.convert.biotype_filter} | \
     awk -F'\t' '{print \$1}' > \
     \$(basename ${ensembl_file} | sed 's/.tsv/_biotype_filtered.ensembl.txt/g')
     
     # Also create a version with gene names
     cat ${ensembl_file} | \
-    egrep ${params.rn_biotype_filter} | \
+    egrep ${params.convert.biotype_filter} | \
     awk -F'\t' '{print \$10}' > \
     \$(basename ${ensembl_file} | sed 's/.tsv/_biotype_filtered.gene_names.txt/g')
     """

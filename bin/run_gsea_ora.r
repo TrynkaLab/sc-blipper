@@ -99,6 +99,9 @@ option_list <- list(
   make_option(c("--threshold"),
               type = "numeric", default = 0,
               help = "Threshold to binarize the input matrix >. Use pvalue/fdr threshold if -m is pvalues, use 1 if input is binary, use 0 if input is cNMF facotors. Interacts with --absolute and --threshold_invert Default: 0"),
+  make_option(c("--max_genes"),
+              type = "numeric", default = 2000,
+              help = "Maximum pathway size to consider. Default: 2000"),
   make_option(c("--threshold_invert"),
               type = "logical", default = FALSE,
               help = "Invert the threshold result to < threshold instead of > threshold. Default: FALSE"),
@@ -124,6 +127,8 @@ if (!is.null(opt$use_top)) {
   opt$use_top <- as.numeric(strsplit(opt$use_top, split=",")[[1]])
 }
 
+# Set max number of genes
+max.genes <- as.numeric(opt$max_genes)
 
 # Load numeric matrix (genes in rows, columns are samples or contrasts)
 mat           <- fread(opt$matrix, data.table=FALSE, header=T)
@@ -189,7 +194,7 @@ for (gmt_file in gmt_files) {
                           genes = names(rank)[1:ngene],
                           universe=gene_universe,
                           minSize = 5,
-                          maxSize = 500) 
+                          maxSize = max.genes) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- paste0("top",ngene)
         fgsea_res$database   <- gmt_name
@@ -210,7 +215,7 @@ for (gmt_file in gmt_files) {
                           genes = names(genes),
                           universe=gene_universe,
                           minSize = 5,
-                          maxSize = 500) 
+                          maxSize = max.genes) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- "ALL"
         fgsea_res$database   <- gmt_name
@@ -224,7 +229,7 @@ for (gmt_file in gmt_files) {
                           genes = cur.genes,
                           universe=gene_universe,
                           minSize = 5,
-                          maxSize = 500) 
+                          maxSize = max.genes) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- "UP"
         fgsea_res$database   <- gmt_name
@@ -239,7 +244,7 @@ for (gmt_file in gmt_files) {
                           genes = cur.genes,
                           universe=gene_universe,
                           minSize = 5,
-                          maxSize = 500) 
+                          maxSize = max.genes) 
         fgsea_res$condition  <- col_name
         fgsea_res$condition2 <- "DOWN"
         fgsea_res$database   <- gmt_name

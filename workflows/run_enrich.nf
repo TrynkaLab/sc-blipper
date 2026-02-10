@@ -17,7 +17,6 @@ workflow enrich {
         // Prepare the enrichment
         enrich = perpare_enrichment(params)
         input_matrix = enrich.input_matrix
-        converter = enrich.converter
         universe = enrich.universe
         gmt_files = enrich.gmt_files
         id_linker = enrich.id_linker
@@ -60,7 +59,8 @@ workflow enrich {
         //----------------------------------------------------------------------------------
         // Run decoupler (Progeny + collecTRI)
         if (params.enrich.run_decoupler) {  
-            is_ensembl = (params.convert.is_ensembl_id && !params.convert.convert_gene_names) || (!params.convert.is_ensembl_id && params.convert.convert_gene_names)          
+            is_ensembl = params.convert.output_namespace == "ensembl"
+            
             if (is_ensembl) {
                 // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
                 decoupler_out = decoupler("enrich/", input_matrix, false, id_linker_inv) 

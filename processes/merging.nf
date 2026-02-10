@@ -16,6 +16,7 @@ process merge_h5ad {
     output:
         tuple val(id), path("${id}_merged.h5ad"), emit: merged
         path("non_overlapping_genes.tsv", optional: true, emit: non_overlaps)
+        path("${id}*.log", optional: true, emit: log)
 
     script:
     
@@ -32,5 +33,9 @@ process merge_h5ad {
             }
         }
         
+        cmd += 
+        """
+        cat .command.log > ${id}.log
+        """        
         cmd
 }
