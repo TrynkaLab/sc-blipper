@@ -2,16 +2,25 @@
 
 ### Major updates
 - Added process cnmf_qc for program level QC metrics as well as additional clustering metrics
+- Migrated decoupler to python, easing python 3.8 dependency
+- Bumped main env to python 3.10
+
+### Minor changes
+- Added environment.yml and enviroment_scvi.yml to ease installation
+- Removed requirements.txt
+- Added installation.txt
+- Fell back to fgsea v1.32 from v1.35 to enable conda install
 
 ### Bugfixes
 
-
 ### Documentation
-
+- Fixed issue with incorrect install instructions
 
 ### Configuration
 - Added parameter qc_skip_calc_varexp with default false to skip estimation of variance explained
-- 
+- Retired params.enrich.omnipath_cache_dir
+  
+  
 ---
 
 
