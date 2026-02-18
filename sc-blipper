@@ -46,6 +46,7 @@ usage() {
     echo -e "-w\t\t\t\tSet the nextflow work directory (default: ../workdir)"
     echo -e "-q\t\t\t\tSet the queue for the nextflow job (default: oversubscribed)"
     echo -e "-w\t\t\t\tSet the time limit for the nextflow job (hours) (default: 120)"
+    echo -e "-g\t\t\t\tSet the LSF group for the nextflow job (default: teamtrynka)"
     echo -e "-- The rest is passed to nextlfow and overrides -c"
     echo -e ""
     echo -e ""

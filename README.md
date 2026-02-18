@@ -22,7 +22,7 @@ The manifest is provided as the parameter 'rn_manifest'.
 Several example config files are provided in conf/examples
 
 ```
-Usage: /software/teamtrynka/installs/sc-blipper/sc-blipper <cnmf|enrich|convert> [-c <file.nf>] [-lqtw] [-w workdir] -- [nextflow pipeline args]
+Usage: sc-blipper <cnmf|enrich|convert> [-c <file.nf>] [-lqtw] [-w workdir] -- [nextflow pipeline args]
 <cnmf|enrich|convert>           The workflow to run
 -c                              <path/to/config.nf> Nextflow config file for the run
 -l                              Run nextflow locally instead of submitting to oversubscribed
@@ -38,7 +38,8 @@ sc-blipper enrich -c conf.nf -w /path/to/workdir -- --rn_runname hello_world --e
 
 # On the whishlist to implement
 - starCAT > inferring nmf usages based on a reference run
-- scCellFie > metabolite pathway activitiy potential inference 
+- Better QC metrics beyond silhouette score of the quality of individual program clusterings
+- 
 - singularity container for the software (currently only supports conda)
 
 # References / acknowledgements

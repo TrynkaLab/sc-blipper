@@ -245,7 +245,10 @@ option_list <- list(
 
   make_option(c("-a", "--annot"), type="character", default=NULL,
               help="Annotation file or NULL"),
-
+              
+  make_option(c("--qc"), type="character", default=NULL,
+              help="QC result file or NULL"),
+              
   make_option(c("--logSpectra"), action="store_true", default=FALSE,
               help="Log2-transform spectra matrix [default: %default]"),
 
@@ -281,6 +284,7 @@ output.prefix <- opt$output
 enrich.threshold <- opt$threshold
 tf.file <- opt$tfFile
 cyto.file <- opt$cytoFile
+qc.file <- opt$qc
 
 if (is.null(spectra.file)) {
   stop("You must provide a spectra file with -S / --spectra")
@@ -289,6 +293,7 @@ if (is.null(spectra.file)) {
 cat("[INFO] spectra: ", spectra.file, "\n")
 cat("[INFO] enrichment: ", enrichment.file, "\n")
 cat("[INFO] annotations: ", annot.file, "\n")
+cat("[INFO] qc file: ", qc.file, "\n")
 
 
 #-------------------------------------------------------------------------------
@@ -299,6 +304,7 @@ spectra     <- t(spectra)
 # Find the top.n genes based on the spectra file
 top.spectra <- apply(apply(spectra, 2, function(x){rownames(spectra)[order(x, decreasing = T)]})[1:top.n,], 2, paste0, collapse=sep)
 top.mat     <- data.frame(top_gep_genes=top.spectra)
+
 cat("[INFO] read spectra\n")
 #-------------------------------------------------------------------------------
 # Create a profile overview for each gep
@@ -326,6 +332,14 @@ for (gep in 1:ncol(spectra)) {
   plot(p)
 }
 dev.off()
+#-------------------------------------------------------------------------------
+# QC results
+
+if (!is.null(qc.file)) {
+  qc      <- read(qc.file)
+  head(qc)
+  top.mat <- cbind(top.mat, qc[rownames(top.mat),])
+}
 
 #-------------------------------------------------------------------------------
 # Enrichment

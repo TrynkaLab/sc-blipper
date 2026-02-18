@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize } from "../processes/cnmf.nf"
+include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
@@ -84,6 +84,9 @@ workflow cnmf {
         }
         // This is the end of the cnmf processing
         
+        // Calculate QC metrics
+        qc_out = cnmf_qc(params.rn_runname, cnmf_out.qc_input)
+    
         // TODO: Wrap the below in : if(params.cnmf.k.split(",").size() >= 2)
         // This is to enable running with a single k value
         // Make the k selection plot
@@ -279,6 +282,9 @@ workflow cnmf {
             summarize_in = cnmf_out.spectra_score.map{row -> tuple("k_${row[0]}", row[1], file("NO_ENRICH"))}
         }
         
+        // Add the QC file
+        summarize_in = summarize_in.combine(qc_out.qc_metrics.map{row -> tuple("k_${row[0]}", row[1])}, by: 0)
+
         // Compact selection of marker / tf / cyto files
         def chooseFile = { paramVal, defaultPath, noTag ->
             if (paramVal == null) Channel.value(file("NO_${noTag}"))

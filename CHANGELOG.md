@@ -1,3 +1,19 @@
+# v0.0.4-alpha (tbd)
+
+### Major updates
+- Added process cnmf_qc for program level QC metrics as well as additional clustering metrics
+
+### Bugfixes
+
+
+### Documentation
+
+
+### Configuration
+- Added parameter qc_skip_calc_varexp with default false to skip estimation of variance explained
+- 
+---
+
 
 # v0.0.3-alpha (10-02-2026)
 
