@@ -15,6 +15,8 @@ import yaml
 from sklearn.decomposition import non_negative_factorization
 from sklearn.preprocessing import scale
 import scipy.sparse as sp
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 def pairwise_dist(mat, grouping, dist='sqeuclidean', sample_correct=True, n_jobs=-1, verbose=True):
     """Average of pairwise distances between cells of each group.
@@ -135,6 +137,22 @@ def get_r2(X, U, H, log2p1=False, scale=False):
     r2 = 1 - (sse / tss)
     
     return r2, sse, tss
+
+def plot_heatmap(df, outfile, scale_rows=False):
+    # df: rows=sources, cols=conditions
+    if scale_rows:
+        df_plot = df.apply(lambda r: (r - r.mean()) / (r.std() if r.std() != 0 else 1), axis=1)
+    else:
+        df_plot = df.copy()
+
+    nrows, ncols = df_plot.shape
+    figsize = (2 + (ncols * 0.5), 1 + (nrows * 0.5))
+    plt.figure(figsize=figsize)
+    sns.heatmap(df_plot, cmap="RdBu_r", center=0, cbar_kws={"shrink": 0.5})
+    plt.tight_layout()
+    plt.savefig(outfile)
+    plt.close()
+
 
 def nmf_variance_explained(X, U, H):
     """
@@ -314,3 +332,4 @@ if __name__ == "__main__":
     annotation.to_csv(f"{params.output}.{prefix}.annotation.tsv", sep="\t", index=False)
     spectra_edist.to_csv(f"{params.output}.{prefix}.edist.tsv", sep="\t", index=True)
     
+    plot_heatmap(spectra_edist, f"{params.output}.{prefix}.edist.pdf", scale_rows=False)

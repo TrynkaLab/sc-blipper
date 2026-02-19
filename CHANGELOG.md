@@ -10,8 +10,12 @@
 - Removed requirements.txt
 - Added installation.md
 - Fell back to fgsea v1.32 from v1.35 to enable conda install
+- Added script that produces e-distance plot based on clustering
+- Added summary file & plot to k_selection with addtional QC metrics
 
 ### Bugfixes
+- Resolved https://github.com/TrynkaLab/sc-blipper/issues/2
+- Resolved https://github.com/TrynkaLab/sc-blipper/issues/3
 
 ### Documentation
 - Fixed issue with incorrect install instructions

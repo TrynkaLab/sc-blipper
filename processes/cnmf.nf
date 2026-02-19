@@ -385,6 +385,7 @@ process cnmf_qc {
         tuple val(k), path(local_density), path(spectra_merged),  path(nmf_params),  path(norm_counts)
     output:
         tuple val(k), path("${id}*.annotation.tsv"), path("${id}*.edist.tsv"), emit: qc_metrics
+        path("*.pdf"), emit: qc_plots
     script:
     
     cmd = 
@@ -408,3 +409,28 @@ process cnmf_qc {
 
 
 
+process cnmf_qc_summary {
+    
+    label params.cnmf.label
+    scratch params.rn_scratch
+    
+    container params.rn_container
+    conda params.rn_conda
+    
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_selection", mode: 'symlink'
+    
+    input:
+        val(id)
+        path(files)
+    output:
+        tuple path("${id}*.tsv"), path("${id}*.pdf"), emit: qc_report
+    script:
+    
+    cmd = 
+    """
+    create_cnmf_qc_summary.r \
+    --inputs ${files.join(",")} \
+    --out ${id}
+    """
+    cmd
+}

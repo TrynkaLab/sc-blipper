@@ -20,9 +20,25 @@ conda deactivate
 
 # I cannot use conda, now what?
 You may be able to create a singularity/apptainer container based on the conda enviroment, As of writing I have not tested
-this
-https://stackoverflow.com/questions/76146763/create-apptainer-container-with-environment-yml-without-creating-a-new-conda-env
+this. Some resources below:
+- https://arcdocs.leeds.ac.uk/arc3-arc4/usage/conda-containers.html
+- https://stackoverflow.com/questions/76146763/create-apptainer-container-with-environment-yml-without-creating-a-new-conda-env
+- https://csc-training.github.io/csc-env-eff/hands-on/singularity/singularity_extra_replicating-conda.html
 
+Once you have your containers, you can set the parameters 
+
+```
+params.rn_container="/path/to/container"
+params.scvi.container="/path/to/container-scvi"
+```
+
+Also make sure to tell nextflow to use your container engine of choice, example for singularity:
+```
+conda.enabled = false
+singularity.enabled = true
+```
+
+More details: https://www.nextflow.io/docs/latest/container.html#singularity
 
 
 # Install scVI (optional)
