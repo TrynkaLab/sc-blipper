@@ -8,7 +8,7 @@
 ### Minor changes
 - Added environment.yml and enviroment_scvi.yml to ease installation
 - Removed requirements.txt
-- Added installation.txt
+- Added installation.md
 - Fell back to fgsea v1.32 from v1.35 to enable conda install
 
 ### Bugfixes
