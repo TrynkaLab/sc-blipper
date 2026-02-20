@@ -141,17 +141,30 @@ def get_r2(X, U, H, log2p1=False, scale=False):
 def plot_heatmap(df, outfile, scale_rows=False):
     # df: rows=sources, cols=conditions
     if scale_rows:
-        df_plot = df.apply(lambda r: (r - r.mean()) / (r.std() if r.std() != 0 else 1), axis=1)
+        df_plot = df.apply(
+            lambda r: (r - r.mean()) / (r.std() if r.std() != 0 else 1),
+            axis=1,
+        )
     else:
         df_plot = df.copy()
 
     nrows, ncols = df_plot.shape
-    figsize = (2 + (ncols * 0.5), 1 + (nrows * 0.5))
-    plt.figure(figsize=figsize)
-    sns.heatmap(df_plot, cmap="RdBu_r", center=0, cbar_kws={"shrink": 0.5})
-    plt.tight_layout()
-    plt.savefig(outfile)
-    plt.close()
+    side = 2 + (max(nrows, ncols) * 0.5)  # keep overall figure large enough
+    fig, ax = plt.subplots(figsize=(side, side))
+
+    sns.heatmap(
+        df_plot,
+        ax=ax,
+        cmap="RdBu_r",
+        center=0,
+        cbar_kws={"shrink": 0.5},
+    )
+
+    ax.set_box_aspect(1)  # force the heatmap panel to be square
+    fig.tight_layout()
+    fig.savefig(outfile)
+    plt.close(fig)
+
 
 
 def nmf_variance_explained(X, U, H):
@@ -315,8 +328,9 @@ if __name__ == "__main__":
     annotation['run_silhouette'] = silhouette_score(l2_spectra.values, kmeans_cluster_labels, metric='euclidean')
     annotation['run_calinski_harabasz'] = calinski_harabasz_score(l2_spectra.values, kmeans_cluster_labels)
     annotation['run_davies_bouldin'] = davies_bouldin_score(l2_spectra.values, kmeans_cluster_labels)
-    
-    # Re order annotations
+    annotation['run_median_density'] = np.median(local_density.iloc[:, 0])
+    annotation['run_mean_density'] = np.mean(local_density.iloc[:, 0])
+
     annotation.index = range(1, len(annotation)+1)
     annotation = annotation.loc[reorder.index,:]
     annotation['gep'] = range(1, len(annotation)+1)

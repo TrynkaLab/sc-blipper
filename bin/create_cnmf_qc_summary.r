@@ -42,8 +42,8 @@ plot_clustering_metrics <- function(df) {
   
   # Create faceted plot
   p1 <- ggplot(df_long, aes(x = k, y = value)) +
-    geom_point(size = 1, color = "steelblue") +
-    geom_line(color = "steelblue", size = 0.5) +
+    geom_point(size = 1, color = "darkgrey") +
+    geom_line(color = "darkgrey", linewidth = 0.5) +
     facet_wrap(~metric, scales = "free_y", ncol = 3) +
     labs(
       x = "Number of Clusters (k)",
@@ -55,9 +55,13 @@ plot_clustering_metrics <- function(df) {
       strip.text = element_text(size = 8, face = "bold"),
       axis.text = element_text(size = 8),
       panel.grid.minor = element_blank(),
-      plot.title = element_text(hjust=0.5)
+      plot.title = element_text(hjust = 0.5),
+      panel.border = element_blank(),                 # no full box
+      axis.line.x = element_line(color = "black"),    # x-axis bar
+      axis.line.y = element_line(color = "black"),    # y-axis bar
+      axis.ticks = element_line(color = "black")      # axis tick bars
     )
-  
+    
   return(p1)
 }
 
@@ -116,7 +120,7 @@ for (file in files) {
 annot <- do.call(rbind, annots)
 
 # Aggregate metrics by cluster number `k` using the minimum as before
-metric_cols      <- c("run_r2", "run_sse", "run_iter_count_perc", "run_silhouette", "run_calinski_harabasz", "run_davies_bouldin", "min_edist")
+metric_cols      <- c("run_r2", "run_sse", "run_iter_count_perc", "run_silhouette", "run_calinski_harabasz", "run_davies_bouldin", "run_mean_density", "run_median_density", "min_edist")
 present_metrics  <- intersect(metric_cols, colnames(annot))
 if (length(present_metrics) == 0) stop("No expected metric columns found in annotations.")
 
@@ -128,7 +132,7 @@ write.table(df.plot, file = combined_out, sep = "\t", quote = FALSE, col.names =
 
 
 # Create PDF of the metrics plot
-pdf(file = paste0(out_prefix, "_k_summary.pdf"), paper = 'a4', width = 10, height = 5)
+pdf(file = paste0(out_prefix, "_k_summary.pdf"), width = 10, height = 5)
 print(plot_clustering_metrics(df.plot))
 dev.off()
 
