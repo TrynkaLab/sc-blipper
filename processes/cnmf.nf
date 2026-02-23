@@ -57,6 +57,8 @@ process cnmf_prepare {
         tuple val(id), path("${id}")
         
     script:
+    
+        def seed =  Math.round( Math.random() * 10000 ).toInteger()
         cmd = 
         """
         cnmf prepare \
@@ -65,9 +67,14 @@ process cnmf_prepare {
         -c $file \
         -k ${params.cnmf.k.split(",").join(' ')} \
         --n-iter ${params.cnmf.n_iter} \
-        --seed ${params.cnmf.seed} \
         --numgenes ${params.preprocess.n_variable}\
         """
+        
+        if (params.cnmf.seed != null) {
+            cmd += " --seed ${params.cnmf.seed}"
+        } else {
+            cmd += " --seed ${seed}"
+        }
         
         // Add the TPM matrix/h5ad to calculate the gene scores
         if (tpm.getFileName().toString() != "NO_TPM") {

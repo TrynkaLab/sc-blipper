@@ -12,6 +12,7 @@
 - Fell back to fgsea v1.32 from v1.35 to enable conda install
 - Added script that produces e-distance plot based on clustering
 - Added summary file & plot to k_selection with addtional QC metrics
+- Added seed option for scVI to keep the scvi runs reproducible
 
 ### Bugfixes
 - Resolved https://github.com/TrynkaLab/sc-blipper/issues/2
@@ -19,10 +20,12 @@
 
 ### Documentation
 - Fixed issue with incorrect install instructions
+- Added note on seeds
 
 ### Configuration
 - Added parameter qc_skip_calc_varexp with default false to skip estimation of variance explained
 - Retired params.enrich.omnipath_cache_dir
+- Added params.preprocess.scvi.seed
   
   
 ---

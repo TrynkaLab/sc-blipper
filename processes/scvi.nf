@@ -30,7 +30,11 @@ process scvi_cnmf {
         --epochs ${params.preprocess.scvi.epochs} \
         --variable_genes ${params.preprocess.n_variable} \
         """
-
+        
+        if (params.preprocess.scvi.seed != null) {
+            cmd += " --seed ${params.preprocess.scvi.seed}"
+        }
+        
         if (params.preprocess.scvi.skip_early_stopping) {
             cmd += " --skip_early_stopping"   
         }
@@ -90,7 +94,11 @@ process scvi {
         --variable_genes ${params.preprocess.n_variable} \
         --skip_cnmf_h5ad \
         """
-                
+        
+        if (params.preprocess.scvi.seed != null) {
+            cmd += " --seed ${params.preprocess.scvi.seed}"
+        }
+        
         if (params.preprocess.scvi.skip_early_stopping) {
             cmd += " --skip_early_stopping"   
         }

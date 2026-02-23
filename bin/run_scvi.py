@@ -10,6 +10,8 @@ from scipy.sparse import hstack, issparse
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
+import random
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -72,6 +74,21 @@ def main(args):
     # 2. Prepare the raw counts adata for scVI training (not unit normalized)
     # 3. Run scVI
     # 4. Save outputs applying stdscale_quantile_celing (in cNMF prepare this is )
+    
+    
+    if args.seed is not None:
+        seed = int(args.seed)
+        scvi.settings.seed = seed
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+
+        # Optional: make PyTorch more deterministic
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     
     # Step 1. cNMF preprocessing
     # Read the anndata
@@ -251,6 +268,7 @@ if __name__ == "__main__":
     parser.add_argument("--skip_plot", default=False, action='store_true', help="Whether to generate UMAPs and save plots [default: False]")
     parser.add_argument("--skip_scvi_h5ad", default=False, action='store_true', help="Whether to skip saving the unscaled scVI h5ad file [default: False]")
     parser.add_argument("--skip_cnmf_h5ad", default=False, action='store_true', help="Whether to skip saving the unscaled cNMF ready output files [default: False]")
+    parser.add_argument("--seed", type=int, default=None, help="Seed for reproducible results [default: None (random)]")
 
     args = parser.parse_args()
     
