@@ -13,3 +13,4 @@ dependencies:
     - scvi-tools 
     - scikit-misc
     - ipython
+    - tqdm
