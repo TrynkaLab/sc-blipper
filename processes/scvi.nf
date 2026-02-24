@@ -35,6 +35,10 @@ process scvi_cnmf {
             cmd += " --seed ${params.preprocess.scvi.seed}"
         }
         
+        if (params.preprocess.scvi.denoise_tp10k) {
+            cmd += " --denoise_tp10k"   
+        }
+        
         if (params.preprocess.scvi.skip_early_stopping) {
             cmd += " --skip_early_stopping"   
         }
@@ -101,6 +105,10 @@ process scvi {
         
         if (params.preprocess.scvi.skip_early_stopping) {
             cmd += " --skip_early_stopping"   
+        }
+        
+        if (params.preprocess.scvi.denoise_tp10k) {
+            cmd += " --denoise_tp10k"   
         }
         
         if (params.preprocess.scvi.cat_covariates) {

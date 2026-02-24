@@ -37,10 +37,8 @@ sc-blipper enrich -c conf.nf -w /path/to/workdir -- --rn_runname hello_world --e
 ```
 
 # On the whishlist to implement
-- starCAT > inferring nmf usages based on a reference run
-- Better QC metrics beyond silhouette score of the quality of individual program clusterings
-- 
-- singularity container for the software (currently only supports conda)
+- Explicit cahcing of Progeny and Collectri databases to enable running when Ominpath is down
+- singularity container for the software (documentation only shows conda install, tough configuration for containers are available)
 
 # References / acknowledgements
 

@@ -6,13 +6,15 @@
 - Bumped main env to python 3.10
 
 ### Minor changes
+- Added seed option for scVI to keep the scvi runs reproducible
+- Added option to use scVI denoised HVGs for inferring usages, so they are batch corrected
 - Added environment.yml and enviroment_scvi.yml to ease installation
 - Removed requirements.txt
 - Added installation.md
 - Fell back to fgsea v1.32 from v1.35 to enable conda install
 - Added script that produces e-distance plot based on clustering
 - Added summary file & plot to k_selection with addtional QC metrics
-- Added seed option for scVI to keep the scvi runs reproducible
+
 
 ### Bugfixes
 - Resolved https://github.com/TrynkaLab/sc-blipper/issues/2
@@ -21,11 +23,14 @@
 ### Documentation
 - Fixed issue with incorrect install instructions
 - Added note on seeds
+- Added note on batch correction and usages
+- Added page `7 cNMF key notes`
 
 ### Configuration
 - Added parameter qc_skip_calc_varexp with default false to skip estimation of variance explained
 - Retired params.enrich.omnipath_cache_dir
 - Added params.preprocess.scvi.seed
+- Added params.preprocess.scvi.denoised_tp10k
   
   
 ---

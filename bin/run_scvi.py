@@ -171,14 +171,22 @@ def main(args):
     if not args.skip_scvi_h5ad:
         sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.h5ad', denoised)
     
+    # Do not use the raw counts for the TP10K output, but rather the denoised values scaled to a fixed library size of 1e4
 
     if not args.skip_cnmf_h5ad:
         # Apply the same scaling as in cNMF preprocessing
         stdscale_quantile_celing(denoised, max_value=args.max_scaled_thresh, quantile_thresh=args.quantile_thresh)
-        
+                
         # Save the ouputs
         sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.Corrected.HVG.Varnorm.h5ad', denoised)
-        sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.TP10K.h5ad', tp10k)
+        
+        if args.denoise_tp10k:
+            tp10k_dn=denoised.copy()
+            sc.pp.normalize_total(tp10k_dn, target_sum=1e4, copy=False)
+            sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.TP10K.h5ad', tp10k_dn)
+        else:
+            sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.TP10K.h5ad', tp10k)
+            
         with open(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.Corrected.HVGs.txt', 'w') as F:
             F.write('\n'.join(hvgs))
 
@@ -264,6 +272,7 @@ if __name__ == "__main__":
     parser.add_argument("--quantile_thresh", type=float, default=0.9999, help="Quantile threshold for ceiling [default: 0.9999]")
     parser.add_argument("--model", type=str, default=None, help="Path to pre-trained scVI model. If provided, skips training [default: None]")
     parser.add_argument("--epochs", type=int, default=800, help="Number of training epochs for scVI [default: 800]")
+    parser.add_argument("--denoise_tp10k", default=False, action='store_true', help="Whether to denoise the TP10K data which will be used to infer usages [default: False]")
     parser.add_argument("--skip_early_stopping", default=False, action='store_true', help="Whether to skip early stopping during training [default: False]")
     parser.add_argument("--skip_plot", default=False, action='store_true', help="Whether to generate UMAPs and save plots [default: False]")
     parser.add_argument("--skip_scvi_h5ad", default=False, action='store_true', help="Whether to skip saving the unscaled scVI h5ad file [default: False]")
