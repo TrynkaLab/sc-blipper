@@ -2,21 +2,23 @@
 
 ### Major updates
 - Added process cnmf_qc for program level QC metrics as well as additional clustering metrics
+- Fixed issue with scVI batch corrected counts not being batch corrected
 - Migrated decoupler to python, easing python 3.8 dependency
-- Bumped main env to python 3.10
+- Added option to use scVI denoised HVGs for inferring usages, so they are batch corrected
 
 ### Minor changes
 - Added seed option for scVI to keep the scvi runs reproducible
-- Added option to use scVI denoised HVGs for inferring usages, so they are batch corrected
+- Added script that produces e-distance plot based on clustering
+- Added summary file & plot to k_selection with addtional QC metrics
+- Updated scVI batch to accept multiple batch columns, which are pasted together
 - Added environment.yml and enviroment_scvi.yml to ease installation
 - Removed requirements.txt
 - Added installation.md
+- Bumped main env to python 3.10
 - Fell back to fgsea v1.32 from v1.35 to enable conda install
-- Added script that produces e-distance plot based on clustering
-- Added summary file & plot to k_selection with addtional QC metrics
-
 
 ### Bugfixes
+- Fixed issue with scVI corrected counts not being batch corrected
 - Resolved https://github.com/TrynkaLab/sc-blipper/issues/2
 - Resolved https://github.com/TrynkaLab/sc-blipper/issues/3
 
