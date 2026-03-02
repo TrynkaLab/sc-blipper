@@ -17,7 +17,23 @@ workflow fetch_id_linker {
         }    
         
         // Always fetch this even if not used
-        ensembl_reference = fetch_gene_id_reference(version)
+
+        if (convert_params.ensembl_file != null) {
+            
+            if (convert_params.id_linker == null) {
+                error "If convert.ensembl_file is set, convert.id_linker must be set."
+            }
+            
+            ensembl_file = file(convert_params.ensembl_file)
+            if (!ensembl_file.exists()) {
+                error "Supplied ensembl file does not exist: ${convert_params.ensembl_file}"
+            }
+            ensembl = Channel.value(ensembl_file)
+            ensembl_reference = null
+        } else {
+            ensembl_reference = fetch_gene_id_reference(version)
+            ensembl = ensembl_reference.ensembl
+        }
 
         if (convert_params.id_linker) {
             id_file = file(convert_params.id_linker)
@@ -56,7 +72,7 @@ workflow fetch_id_linker {
         // }
 
     emit:
-        ensembl_reference = ensembl_reference.ensembl
+        ensembl_reference = ensembl
         id_linker = id_linker
         id_linker_inv = id_linker_inv
         biotype_ensembl=biotype_ensembl

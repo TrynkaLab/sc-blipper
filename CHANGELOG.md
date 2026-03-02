@@ -1,4 +1,4 @@
-# v0.0.4-alpha (tbd)
+# v0.0.4-alpha (2026-02-02)
 
 ### Major updates
 - Added process cnmf_qc for program level QC metrics as well as additional clustering metrics
@@ -10,6 +10,8 @@
 - Added seed option for scVI to keep the scvi runs reproducible
 - Added script that produces e-distance plot based on clustering
 - Added summary file & plot to k_selection with addtional QC metrics
+- Added option to manually supply ensembl file. This is usefull if biomart is down.
+- Added ensembl version 115
 - Updated scVI batch to accept multiple batch columns, which are pasted together
 - Added environment.yml and enviroment_scvi.yml to ease installation
 - Removed requirements.txt
@@ -33,6 +35,7 @@
 - Retired params.enrich.omnipath_cache_dir
 - Added params.preprocess.scvi.seed
 - Added params.preprocess.scvi.denoised_tp10k
+- Added params.convert.ensembl_file
   
   
 ---
