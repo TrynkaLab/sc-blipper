@@ -4,6 +4,7 @@ import argparse
 import sys
 import anndata as ad
 from cnmf import Preprocess
+import random
 
 
 if __name__ == "__main__":
@@ -16,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument('--harmony_vars', type=str, nargs='+', default=None, help='List of metadata variable names to integrate on (space-separated)')
     parser.add_argument('--n_variable', type=int, default=2000, help='Number of variable genes to select (default: 2000)')
     parser.add_argument('--feature_type_col', type=str, default=None, help='Column name in .var specifying if a feature is GEX or ADT')
-    parser.add_argument('--seed', type=int, default=42, help='Seed for cnmf preprocess')
+    parser.add_argument('--seed', type=int, default=None, help='Seed for cnmf preprocess')
 
     args = parser.parse_args()
     
@@ -33,6 +34,13 @@ if __name__ == "__main__":
     if args.harmony_vars is not None:
         for var in args.harmony_vars:
             adata.obs[var] = adata.obs[var].astype(str)
+            
+    if args.seed is None:
+        seed = random.randint(0, 999999)
+    else:
+        seed = args.seed
+    
+    print(f"Using seed: {seed}")
     
     p = Preprocess(random_seed=args.seed)
     

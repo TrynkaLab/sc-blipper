@@ -208,22 +208,22 @@ process decoupler {
     
     cmd =
     """
-    run_decoupler.r \
+    run_decoupler.py \
     --output_prefix ${id} \
     --matrix ${file}\
     """
     
     if (transpose) {
-        cmd += " --transpose TRUE"
+        cmd += " --transpose"
     }
     
     if (mapping_file.getFileName().toString() != "NO_MAPPING") {
         cmd += " --id_linker ${mapping_file}"
     }
     
-    if (params.enrich.omnipath_cache_dir != null) {
-        cmd += " --cache_dir ${params.enrich.omnipath_cache_dir}"
-    }    
+    //if (params.enrich.omnipath_cache_dir != null) {
+    //    cmd += " --cache_dir ${params.enrich.omnipath_cache_dir}"
+    //}    
     
     // Convert to standard format and zip
     cmd +=

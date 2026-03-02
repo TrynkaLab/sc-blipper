@@ -10,6 +10,8 @@ from scipy.sparse import hstack, issparse
 import numpy as np
 import argparse
 import matplotlib.pyplot as plt
+import random
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -73,17 +75,37 @@ def main(args):
     # 3. Run scVI
     # 4. Save outputs applying stdscale_quantile_celing (in cNMF prepare this is )
     
+    
+    if args.seed is not None:
+        seed = int(args.seed)
+        scvi.settings.seed = seed
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+
+        # Optional: make PyTorch more deterministic
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    
     # Step 1. cNMF preprocessing
     # Read the anndata
     adata = ad.read_h5ad(args.input)
     
+    logging.info(f"Input data loaded successfully with shape {adata.shape} and obs columns: {list(adata.obs.columns)}")
     #-------------------------------------------------------------------------
     missing_cols = []
     
-    # Check batch_key
-    if args.batch_key is not None and args.batch_key not in adata.obs.columns:
-        raise ValueError(f"batch_key not found on .obs: '{args.batch_key}'")
     
+    batch_keys = args.batch_key if isinstance(args.batch_key, list) else [args.batch_key]
+
+    # Check batch_key
+    missing_batch = [k for k in batch_keys if k not in adata.obs.columns]
+    if missing_batch:
+        raise ValueError(f"batch_key(s) not found in .obs: {missing_batch}")
+
     # Check categorical covariates
     if args.cat_covariates is not None:
         for col in args.cat_covariates:
@@ -104,6 +126,22 @@ def main(args):
     
     logging.info("All required columns validated successfully in adata.obs")
     
+    
+    # Build effective batch key
+    if len(batch_keys) == 1:
+        adata.obs["scvi_batch"] = adata.obs[batch_keys[0]].astype("category")
+    else:
+        adata.obs["scvi_batch"] = (
+            adata.obs[batch_keys]
+            .astype(str)
+            .fillna("NA")
+            .agg("||".join, axis=1)
+        )
+        
+        adata.obs["scvi_batch"] = adata.obs["scvi_batch"].astype("category")
+        logging.info(f"Combined batch keys {batch_keys} into scvi_batch with categories: {adata.obs['scvi_batch'].cat.categories}")
+        
+        
     #-------------------------------------------------------------------------
     # tp10k matrix
     tp10k = adata.copy()
@@ -115,14 +153,18 @@ def main(args):
     # Subset counts to HVGs
     adata = adata[:, adata.var['highly_variable']]
     hvgs = list(adata.var.index)
+    logging.info("Found HVGs: %d", len(hvgs))
+    
     #-------------------------------------------------------------------------
     # Step 2. Prepare adata for scVI training
     adata = adata.copy()
     
+    
     if (args.model is None):
+        logging.info(f"Training new scVI model with n_latent={args.n_latent}")
         scvi.model.SCVI.setup_anndata(
             adata,
-            batch_key=args.batch_key,
+            batch_key='scvi_batch',
             categorical_covariate_keys=args.cat_covariates,
             continuous_covariate_keys=args.cont_covariates,
         )
@@ -139,29 +181,42 @@ def main(args):
         
         model.save(f"{args.output_prefix}", overwrite=True)
     else:
+        logging.info(f"Loading pre-trained scVI model from {args.model}")
         model = scvi.model.SCVI.load(args.model, adata=adata)
     
     # Step 4. Get the output, library_size set to latent (returns on the scale of each cell, as opposed to a fixed tpm number like 1e4)
     # The library size is arbitrary here
     # TODO: in future, remove the copy step
     denoised = adata.copy()
-    denoised.X = model.get_normalized_expression(denoised, library_size="latent")
+    denoised.X = model.get_normalized_expression(denoised,
+                                                library_size="latent",
+                                                transform_batch=adata.obs["scvi_batch"].unique().tolist()[0])
      
+    logging.info(f"scVI denoised data generated successfully with shape {denoised.shape}")
+    
     # Add the latent embedding    
     denoised.obsm['scVI_latentspace'] = model.get_latent_representation(denoised)
+    
+    # Create a TP10K version of the denoised data for UMAP visualization
+    tp10k_dn=denoised.copy()
+    sc.pp.normalize_total(tp10k_dn, target_sum=1e4, copy=False)
     
     # Save the denoised data before scaling
     if not args.skip_scvi_h5ad:
         sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.h5ad', denoised)
     
-
     if not args.skip_cnmf_h5ad:
         # Apply the same scaling as in cNMF preprocessing
         stdscale_quantile_celing(denoised, max_value=args.max_scaled_thresh, quantile_thresh=args.quantile_thresh)
-        
+                
         # Save the ouputs
         sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.Corrected.HVG.Varnorm.h5ad', denoised)
-        sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.TP10K.h5ad', tp10k)
+    
+        if args.denoise_tp10k:
+            sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.TP10K.h5ad', tp10k_dn)
+        else:
+            sc.write(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.TP10K.h5ad', tp10k)
+            
         with open(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '.Corrected.HVGs.txt', 'w') as F:
             F.write('\n'.join(hvgs))
 
@@ -179,7 +234,7 @@ def main(args):
             
         logging.info("Generating and saving UMAP plots for TP10K and scVI denoised data")
         
-        fig, axes = plt.subplots(1, 2, figsize=(15, 7.5))
+        fig, axes = plt.subplots(1, 3, figsize=(20, 7.5))
 
         # -------------------- add TP10K HVG UMAP  --------------------
         # Subset tp10k to the previously computed HVGs, log1p, run PCA + UMAP and save plot
@@ -194,11 +249,26 @@ def main(args):
 
                 sc.pl.umap(
                     tp10k_hvg,
-                    color=args.batch_key,
+                    color="scvi_batch",
                     frameon=False,
                     show=False,
                     ax=axes[0],
                     title="TP10K HVG UMAP")
+                    
+                if tp10k_dn is not None:
+                    tp10k_dn_hvg = tp10k_dn[:, hvgs].copy()
+                    sc.pp.log1p(tp10k_dn_hvg)
+                    sc.pp.pca(tp10k_dn_hvg, n_comps=50)
+                    sc.pp.neighbors(tp10k_dn_hvg, use_rep="X_pca")
+                    sc.tl.umap(tp10k_dn_hvg, min_dist=0.3)
+
+                    sc.pl.umap(
+                        tp10k_dn_hvg,
+                        color="scvi_batch",
+                        frameon=False,
+                        show=False,
+                        ax=axes[1],
+                        title="TP10K Denoised HVG UMAP")
                 
             else:
                 logging.warning("HVG list is empty; skipping TP10K HVG UMAP.")
@@ -206,16 +276,17 @@ def main(args):
             logging.warning(f"Failed to generate TP10K HVG UMAP: {e}")
         
         logging.info("TP10K HVG UMAP generated successfully.")
-        # -------------------- add scVI HVG UMAP  --------------------
+        
+        # -------------------- add scVI latent UMAP  --------------------
         sc.pp.neighbors(denoised, use_rep="scVI_latentspace")
         sc.tl.umap(denoised, min_dist=0.3)
         sc.pl.umap(
             denoised,
-            color=args.batch_key,
+            color="scvi_batch",
             frameon=False,
             show=False,
-            ax=axes[1],
-            title="scVI HVG UMAP"
+            ax=axes[2],
+            title="scVI Latent UMAP"
         )
       
         plt.tight_layout()
@@ -227,6 +298,7 @@ def main(args):
         umap_df = denoised.obs.copy()
         umap_df[['scVI_UMAP_1', 'scVI_UMAP_2']] = denoised.obsm['X_umap']
         umap_df[['tp10k_UMAP_1', 'tp10k_UMAP_2']] = tp10k_hvg.obsm['X_umap']
+        umap_df[['tp10k_dn_UMAP_1', 'tp10k_dn_UMAP_2']] = tp10k_dn_hvg.obsm['X_umap']
         umap_df.to_csv(args.output_prefix + "__scvi__nl" + str(args.n_latent) + '_meta_with_umap_coords.tsv', sep='\t')
         
         
@@ -238,7 +310,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run scVI training on single-cell RNA-seq data with cNMF preprocessing")
     parser.add_argument("--input", type=str, required=True, help="Path to input h5ad file with raw counts on .X")
     parser.add_argument("--output_prefix", type=str, required=True, help="Output prefix for saved files")
-    parser.add_argument("--batch_key", type=str, required=True, help="Column name in adata.obs for batch information")
+    parser.add_argument("--batch_key", type=str, nargs="+", required=True, help="One or more name in adata.obs for batch information. If more, they are pasted together which is treated as one batch.")
     parser.add_argument("--cat_covariates", type=str, nargs="+", default=None, help="Categorical covariate column names in adata.obs")
     parser.add_argument("--cont_covariates", type=str, nargs="+", default=None, help="Continuous covariate column names in adata.obs")
     parser.add_argument("--variable_genes", type=int, default=2000, help="Number of highly variable genes to select [default: 2000]")
@@ -247,16 +319,18 @@ if __name__ == "__main__":
     parser.add_argument("--quantile_thresh", type=float, default=0.9999, help="Quantile threshold for ceiling [default: 0.9999]")
     parser.add_argument("--model", type=str, default=None, help="Path to pre-trained scVI model. If provided, skips training [default: None]")
     parser.add_argument("--epochs", type=int, default=800, help="Number of training epochs for scVI [default: 800]")
+    parser.add_argument("--denoise_tp10k", default=False, action='store_true', help="Whether to denoise the TP10K data which will be used to infer usages [default: False]")
     parser.add_argument("--skip_early_stopping", default=False, action='store_true', help="Whether to skip early stopping during training [default: False]")
     parser.add_argument("--skip_plot", default=False, action='store_true', help="Whether to generate UMAPs and save plots [default: False]")
     parser.add_argument("--skip_scvi_h5ad", default=False, action='store_true', help="Whether to skip saving the unscaled scVI h5ad file [default: False]")
     parser.add_argument("--skip_cnmf_h5ad", default=False, action='store_true', help="Whether to skip saving the unscaled cNMF ready output files [default: False]")
+    parser.add_argument("--seed", type=int, default=None, help="Seed for reproducible results [default: None (random)]")
 
     args = parser.parse_args()
     
     if not check_jax_devices() or not check_pytorch_cuda():
         logging.error("CUDA devices are not properly configured for PyTorch or JAX. Check your installation or GPU drivers.")
-        exit(1)
+        #exit(1)
     
     #if args.cat_covariates is not None:
     #    args.cat_covariates = list(args.cat_covariates.split(','))

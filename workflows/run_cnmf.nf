@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize } from "../processes/cnmf.nf"
+include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc; cnmf_qc_summary } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
@@ -84,6 +84,12 @@ workflow cnmf {
         }
         // This is the end of the cnmf processing
         
+        // Calculate QC metrics
+        qc_out = cnmf_qc(params.rn_runname, cnmf_out.qc_input)
+        
+        // Summarize QC metrics
+        qc_summary_out = cnmf_qc_summary(params.rn_runname, qc_out.qc_metrics.map{row -> row[1]}.toSortedList())
+    
         // TODO: Wrap the below in : if(params.cnmf.k.split(",").size() >= 2)
         // This is to enable running with a single k value
         // Make the k selection plot
@@ -92,12 +98,12 @@ workflow cnmf {
         // Plot k-selection tree (how programs relate to eachother)
         if (params.cnmf.ktree_plot) {
             // Collect all (k, file) pairs into a list
-            all_files = cnmf_out.spectra_score.map{row -> row[1]}.collect()
+            all_files = cnmf_out.spectra_score.map{row -> row[1]}.toSortedList()
 
             // Map to the "k=fileName" strings and join with space
             pairs_string = cnmf_out.spectra_score
             .flatMap { row -> "${row[0]}=${row[1].getName()}" }
-            .collect()
+            .toSortedList()
             .map { list -> list.join(' ') }
 
             // Create a single emission channel for the next process with all files and the string
@@ -279,6 +285,9 @@ workflow cnmf {
             summarize_in = cnmf_out.spectra_score.map{row -> tuple("k_${row[0]}", row[1], file("NO_ENRICH"))}
         }
         
+        // Add the QC file
+        summarize_in = summarize_in.combine(qc_out.qc_metrics.map{row -> tuple("k_${row[0]}", row[1])}, by: 0)
+
         // Compact selection of marker / tf / cyto files
         def chooseFile = { paramVal, defaultPath, noTag ->
             if (paramVal == null) Channel.value(file("NO_${noTag}"))

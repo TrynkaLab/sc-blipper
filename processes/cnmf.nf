@@ -57,6 +57,8 @@ process cnmf_prepare {
         tuple val(id), path("${id}")
         
     script:
+    
+        def seed =  Math.round( Math.random() * 10000 ).toInteger()
         cmd = 
         """
         cnmf prepare \
@@ -65,9 +67,14 @@ process cnmf_prepare {
         -c $file \
         -k ${params.cnmf.k.split(",").join(' ')} \
         --n-iter ${params.cnmf.n_iter} \
-        --seed ${params.cnmf.seed} \
         --numgenes ${params.preprocess.n_variable}\
         """
+        
+        if (params.cnmf.seed != null) {
+            cmd += " --seed ${params.cnmf.seed}"
+        } else {
+            cmd += " --seed ${seed}"
+        }
         
         // Add the TPM matrix/h5ad to calculate the gene scores
         if (tpm.getFileName().toString() != "NO_TPM") {
@@ -226,7 +233,7 @@ process cnmf_consensus {
         tuple val(k), path("${id}/${id}.starcat_spectra.k_*"), emit: starcat_spectra_k
         tuple val(k), path("${id}/${id}.*.png"), emit: plots
         tuple val(k), path("${id}/${id}.*.h5ad"), optional: true, emit: h5ad
-
+        tuple val(k), path("${id}/cnmf_tmp/${id}.local_density_cache.k_${k}.merged.df.npz"), path("${id}/cnmf_tmp/${id}.spectra.k_${k}.merged.df.npz"),  path("${id}/cnmf_tmp/${id}.nmf_idvrun_params.yaml"),  path("${id}/cnmf_tmp/${id}.norm_counts.h5ad"), emit: qc_input
     script:
     
         String local_dens = params.cnmf.local_density.toString().replace('.', '_')
@@ -314,7 +321,7 @@ process cnmf_summarize {
     
     input:
         val(id)
-        tuple val(k), path(spectra_file), path(enrich_file)
+        tuple val(k), path(spectra_file), path(enrich_file), path(qc_file)
         path(marker_file)
         path(tf_file)
         path(cyto_file)
@@ -354,6 +361,10 @@ process cnmf_summarize {
             cmd += " --annot ${marker_file}"
         }
         
+        if (qc_file.getFileName().toString() != "NO_QC") {
+            cmd += " --qc ${qc_file}"
+        }
+        
         if (tf_file.getFileName().toString() != "NO_TF") {
             cmd += " --tfFile ${tf_file}"
         }
@@ -366,3 +377,67 @@ process cnmf_summarize {
 }
 
 
+process cnmf_qc {
+    
+    label params.cnmf.label
+    scratch params.rn_scratch
+    
+    container params.rn_container
+    conda params.rn_conda
+    
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_${k}", mode: 'symlink'
+    
+    input:
+        val(id)
+        tuple val(k), path(local_density), path(spectra_merged),  path(nmf_params),  path(norm_counts)
+    output:
+        tuple val(k), path("${id}*.annotation.tsv"), path("${id}*.edist.tsv"), emit: qc_metrics
+        path("*.pdf"), emit: qc_plots
+    script:
+    
+    cmd = 
+    """
+    run_qc_cnmf.py \
+    --spectra ${spectra_merged} \
+    --density ${local_density} \
+    --norm_counts ${norm_counts} \
+    --params ${nmf_params} \
+    --output ${id} \
+    --density_threshold ${params.cnmf.local_density} \
+    --k ${k}\
+    """
+    
+    if (params.cnmf.qc_skip_calc_varexp) {
+        cmd += " --skip_varexp"
+    }
+    
+    cmd
+}
+
+
+
+process cnmf_qc_summary {
+    
+    label params.cnmf.label
+    scratch params.rn_scratch
+    
+    container params.rn_container
+    conda params.rn_conda
+    
+    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_selection", mode: 'symlink'
+    
+    input:
+        val(id)
+        path(files)
+    output:
+        tuple path("${id}*.tsv"), path("${id}*.pdf"), emit: qc_report
+    script:
+    
+    cmd = 
+    """
+    create_cnmf_qc_summary.r \
+    --inputs ${files.join(",")} \
+    --out ${id}
+    """
+    cmd
+}

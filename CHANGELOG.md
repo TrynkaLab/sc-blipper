@@ -1,3 +1,45 @@
+# v0.0.4-alpha (2026-02-02)
+
+### Major updates
+- Added process cnmf_qc for program level QC metrics as well as additional clustering metrics
+- Fixed issue with scVI batch corrected counts not being batch corrected
+- Migrated decoupler to python, easing python 3.8 dependency
+- Added option to use scVI denoised HVGs for inferring usages, so they are batch corrected
+
+### Minor changes
+- Added seed option for scVI to keep the scvi runs reproducible
+- Added script that produces e-distance plot based on clustering
+- Added summary file & plot to k_selection with addtional QC metrics
+- Added option to manually supply ensembl file. This is usefull if biomart is down.
+- Added ensembl version 115
+- Updated scVI batch to accept multiple batch columns, which are pasted together
+- Added environment.yml and enviroment_scvi.yml to ease installation
+- Removed requirements.txt
+- Added installation.md
+- Bumped main env to python 3.10
+- Fell back to fgsea v1.32 from v1.35 to enable conda install
+
+### Bugfixes
+- Fixed issue with scVI corrected counts not being batch corrected
+- Resolved https://github.com/TrynkaLab/sc-blipper/issues/2
+- Resolved https://github.com/TrynkaLab/sc-blipper/issues/3
+
+### Documentation
+- Fixed issue with incorrect install instructions
+- Added note on seeds
+- Added note on batch correction and usages
+- Added page `7 cNMF key notes`
+
+### Configuration
+- Added parameter qc_skip_calc_varexp with default false to skip estimation of variance explained
+- Retired params.enrich.omnipath_cache_dir
+- Added params.preprocess.scvi.seed
+- Added params.preprocess.scvi.denoised_tp10k
+- Added params.convert.ensembl_file
+  
+  
+---
+
 
 # v0.0.3-alpha (10-02-2026)
 
