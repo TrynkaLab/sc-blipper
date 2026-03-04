@@ -184,6 +184,26 @@ process ora {
     cmd
 }
 
+process fetch_omnipath {
+    label params.enrich.label
+    scratch params.rn_scratch
+    
+    container params.rn_container
+    conda params.rn_conda
+    
+    publishDir "$params.rn_publish_dir/reference/ominpath", mode: 'symlink'
+
+    output:
+        path("progeny_network.tsv", emit: progeny)
+        path("collectri_network.tsv", emit: collectri)
+        
+    script:
+    """
+    fetch_omnipath.py
+    """
+
+}
+
 
 process decoupler {
     label params.enrich.label
@@ -200,6 +220,8 @@ process decoupler {
         tuple val(id), path(file)
         val(transpose)
         path(mapping_file)
+        path(progeny_network)
+        path(collectri_network)
     output:
         path("${id}_*.tsv.gz", emit: decoupler)
         tuple val(id), path("${id}_*.enrich.gz"), emit: std
@@ -219,6 +241,14 @@ process decoupler {
     
     if (mapping_file.getFileName().toString() != "NO_MAPPING") {
         cmd += " --id_linker ${mapping_file}"
+    }
+    
+    if (progeny_network.getFileName().toString() != "NO_PROGENY") {
+        cmd += " --progeny_network_file ${progeny_network}"
+    }
+    
+    if (collectri_network.getFileName().toString() != "NO_COLLECTRI") {
+        cmd += " --collectri_network_file ${collectri_network}"
     }
     
     //if (params.enrich.omnipath_cache_dir != null) {

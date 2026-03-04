@@ -1,3 +1,16 @@
+# v0.0.5-alpha (tbd)
+
+### Major updates
+
+
+### Minor changes
+- Added script to fetch and cache omnipath resources rather then requesting at each job
+- Added copy of omnipath references to assets
+
+### Configuration
+- Added option enrich.progeny_file
+- Added option enrich.collectri_file
+
 # v0.0.4-alpha (2026-02-02)
 
 ### Major updates

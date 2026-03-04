@@ -68,6 +68,10 @@ def maybe_map_targets(net_df, mapping):
     return net_df
 
 
+def read_network_tsv(path):
+    return pd.read_csv(path, sep="\t")
+
+
 def melt_acts(acts_df, pvals_df=None):
     # acts_df: index = sources, columns = conditions
     acts_long = acts_df.reset_index().melt(id_vars=acts_df.index.name or "source", var_name="condition", value_name="score")
@@ -116,11 +120,14 @@ def main(args):
 
     print("Matrix loaded. Now running PROGENy...")
     # Load PROGENy
-    try:
-        progeny = dc.op.progeny(organism="human", top=500)
-    except TypeError:
-        # some versions may not support top
-        progeny = dc.op.progeny(organism="human")
+    if args.progeny_network_file:
+        progeny = read_network_tsv(args.progeny_network_file)
+    else:
+        try:
+            progeny = dc.op.progeny(organism="human", top=500)
+        except TypeError:
+            # some versions may not support top
+            progeny = dc.op.progeny(organism="human")
 
     progeny = maybe_map_targets(progeny, gene_replacement)
 
@@ -155,11 +162,14 @@ def main(args):
   
     print("PROGENy analysis completed. Now running DoRothEA/CollectTRI...")
     # CollectTRI network
-    try:
-        collectri = dc.op.collectri(organism="human")
-    except Exception:
-        # fallback via op.resource
-        collectri = dc.op.collectri(organism="human")
+    if args.collectri_network_file:
+        collectri = read_network_tsv(args.collectri_network_file)
+    else:
+        try:
+            collectri = dc.op.collectri(organism="human")
+        except Exception:
+            # fallback via op.resource
+            collectri = dc.op.collectri(organism="human")
 
     collectri = maybe_map_targets(collectri, gene_replacement)
 
@@ -219,6 +229,8 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--transpose", action="store_true", help="Whether to transpose the matrix before processing. Default: FALSE.")
     #parser.add_argument("--cache_dir", default=None, help="Cache dir for OmniPath (best effort).")
     parser.add_argument("--id_linker", default=None, help="TSV file with gene name to ensembl (old, new) to convert omnipath with Default: NULL")
+    parser.add_argument("--progeny_network_file", default=None, help="Optional TSV for PROGENy/decoupler network.")
+    parser.add_argument("--collectri_network_file", default=None, help="Optional TSV for CollectTRI network.")
 
     args = parser.parse_args()
     

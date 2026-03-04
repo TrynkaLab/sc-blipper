@@ -2,7 +2,7 @@
 
 // Processes
 include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc; cnmf_qc_summary } from "../processes/cnmf.nf"
-include { gsea; ora; decoupler } from "../processes/enrichment.nf"
+include { gsea; ora; decoupler; fetch_omnipath } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
 include { magma_concat as magma_concat_per_k } from "../processes/magma.nf"
@@ -192,6 +192,19 @@ workflow cnmf {
             // Run decoupler (Progeny + collecTRI)
             if (params.cnmf.run_decoupler) {
                 
+                // Fetch the reference files        
+                if (params.enrich.progeny_file != null && params.enrich.collectri_file != null) {
+                    progeny_network = Channel.value(file(params.enrich.progeny_file))
+                    collectri_network = Channel.value(file(params.enrich.collectri_file))
+                } else if (params.enrich.progeny_file != null && params.enrich.collectri_file == null || params.enrich.progeny_file == null && params.enrich.collectri_file != null) {
+                    error "Must specify both progeny and collectri files, or neither to fetch from omnipath"
+                } else {
+                    omnipath = fetch_omnipath()
+                    progeny_network = omnipath.progeny
+                    collectri_network = omnipath.collectri
+                }
+                
+                // Filter which K values to ignore
                 if (params.cnmf.k_ignore != null) {
                     decoupler_in = cnmf_out.spectra_score.filter { tuple ->
                         def (k, path) = tuple
@@ -200,12 +213,14 @@ workflow cnmf {
                 } else {
                     decoupler_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
                 }
+                
+                // Run decoupler with or without id conversion, depending on the input type
                 if (is_ensembl) {
                     // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
-                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, fetch_id_linker.out.id_linker_inv) 
+                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, fetch_id_linker.out.id_linker_inv, progeny_network, collectri_network) 
                 } else {
                     // This assumes you have converted to gene symbols
-                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"))
+                    decoupler_out = decoupler("cnmf/consensus/${params.rn_runname}", decoupler_in, true, file("NO_MAPPING"), progeny_network, collectri_network)
                 }
             } else {
                 decoupler_out = [:]

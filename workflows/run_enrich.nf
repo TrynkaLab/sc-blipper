@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { gsea; ora; decoupler; concat_enrichment_results } from "../processes/enrichment.nf"
+include { gsea; ora; decoupler; concat_enrichment_results; fetch_omnipath } from "../processes/enrichment.nf"
 include { magma_assoc; magma_concat } from "../processes/magma.nf"
 
 // Subworkflows
@@ -22,6 +22,7 @@ workflow enrich {
         id_linker = enrich.id_linker
         id_linker_inv = enrich.id_linker_inv
         ensembl_reference = enrich.ensembl_reference
+
         
         //----------------------------------------------------------------------------------
         // Run GSEA
@@ -59,14 +60,27 @@ workflow enrich {
         //----------------------------------------------------------------------------------
         // Run decoupler (Progeny + collecTRI)
         if (params.enrich.run_decoupler) {  
+            
+            // Fetch the reference files        
+            if (params.enrich.progeny_file != null && params.enrich.collectri_file != null) {
+                progeny_network = Channel.value(file(params.enrich.progeny_file))
+                collectri_network = Channel.value(file(params.enrich.collectri_file))
+            } else if (params.enrich.progeny_file != null && params.enrich.collectri_file == null || params.enrich.progeny_file == null && params.enrich.collectri_file != null) {
+                error "Must specify both progeny and collectri files, or neither to fetch from omnipath"
+            } else {
+                omnipath = fetch_omnipath()
+                progeny_network = omnipath.progeny
+                collectri_network = omnipath.collectri
+            }
+
             is_ensembl = params.convert.output_namespace == "ensembl"
             
             if (is_ensembl) {
                 // In the case you converted everything to ensembl names, keep things consistent and convert progeny as well
-                decoupler_out = decoupler("enrich/", input_matrix, false, id_linker_inv) 
+                decoupler_out = decoupler("enrich/", input_matrix, false, id_linker_inv, progeny_network, collectri_network) 
             } else {
                 // This assumes you have converted to gene symbols
-                decoupler_out = decoupler("enrich/", input_matrix, false, file("NO_MAPPING"))
+                decoupler_out = decoupler("enrich/", input_matrix, false, file("NO_MAPPING"), progeny_network, collectri_network)
             }
         } else {
             decoupler_out = [:]
