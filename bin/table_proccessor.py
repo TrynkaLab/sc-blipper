@@ -49,6 +49,10 @@ def main():
     parser.add_argument("--col-file", help="File containing column names to keep (matches header). Runs after --update-cols")
     parser.add_argument("--update-rows", help="Two-column TSV/CSV file (old_id,new_id) to update DataFrame row index. Runs before transpose")
     parser.add_argument("--update-cols", help="Two-column TSV/CSV file (old_id,new_id) to update DataFrame column names. Runs before transpose")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--replace-spaces", dest="replace_spaces", action="store_true", help="Replace spaces in row and column names with '_' (applied after updates) (default)")
+    group.add_argument("--no-replace-spaces", dest="replace_spaces", action="store_false", help="Do not replace spaces in row and column names")
+    parser.set_defaults(replace_spaces=True)
 
     args = parser.parse_args()
 
@@ -73,6 +77,12 @@ def main():
     # Update column names if requested
     if args.update_cols:
         df = update_columns_from_mapping(df, args.update_cols)
+
+    # Replace spaces in row and column names with underscore if requested
+    if args.replace_spaces:
+        df.index = [i.replace(' ', '_') for i in df.index]
+        df.columns = [c.replace(' ', '_') for c in df.columns]
+        log_print("Replaced spaces with '_' in row and column names")
 
     # Subset rows
     if args.row_file:

@@ -6,10 +6,13 @@
 ### Minor changes
 - Added script to fetch and cache omnipath resources rather then requesting at each job
 - Added copy of omnipath references to assets
+- Updated table_processor to replace spaces in row and column names with _ 
 
 ### Configuration
 - Added option enrich.progeny_file
 - Added option enrich.collectri_file
+
+---
 
 # v0.0.4-alpha (2026-02-02)
 
