@@ -80,8 +80,8 @@ def main():
 
     # Replace spaces in row and column names with underscore if requested
     if args.replace_spaces:
-        df.index = [i.replace(' ', '_') for i in df.index]
-        df.columns = [c.replace(' ', '_') for c in df.columns]
+        df.index = [i.replace(' ', '_') if isinstance(i, str) else i for i in df.index]
+        df.columns = [c.replace(' ', '_') if isinstance(c, str) else c for c in df.columns]
         log_print("Replaced spaces with '_' in row and column names")
 
     # Subset rows
