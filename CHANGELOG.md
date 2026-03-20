@@ -6,7 +6,8 @@
 ### Minor changes
 - Added script to fetch and cache omnipath resources rather then requesting at each job
 - Added copy of omnipath references to assets
-- Updated table_processor to replace spaces in row and column names with _ 
+- Updated table_processor to replace spaces in row and column names with _, so spaces are allowed in enrich workflow
+- Added additional marker genes to CD4 assets list
 
 ### Configuration
 - Added option enrich.progeny_file
