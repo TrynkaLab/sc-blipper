@@ -1,17 +1,23 @@
 # v0.0.5-alpha (tbd)
 
 ### Major updates
-
+- Added stratifed LDSC workflow
 
 ### Minor changes
 - Added script to fetch and cache omnipath resources rather then requesting at each job
 - Added copy of omnipath references to assets
 - Updated table_processor to replace spaces in row and column names with _, so spaces are allowed in enrich workflow
 - Added additional marker genes to CD4 assets list
+- Added config gpu_medium_long
+- Code refactoring
 
 ### Configuration
 - Added option enrich.progeny_file
 - Added option enrich.collectri_file
+- Added configuration block for LDSC
+
+### Documentation
+- Added workflow page for ldsc
 
 ---
 

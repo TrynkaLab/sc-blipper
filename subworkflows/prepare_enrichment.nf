@@ -1,7 +1,6 @@
 #!/usr/bin/env nextflow
-include { fetch_gene_id_reference; invert_id_link } from "../processes/utils.nf"
+include { fetch_gene_id_reference; invert_id_link; preprocess_matrix } from "../processes/utils.nf"
 include { fetch_id_linker } from "../subworkflows/id_linking.nf"
-include {  preprocess_matrix } from "../processes/enrichment.nf"
 
 workflow perpare_enrichment {
     take:

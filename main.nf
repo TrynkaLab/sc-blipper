@@ -12,3 +12,5 @@ include { enrich } from './workflows/run_enrich.nf'
 include { convert } from './workflows/run_convert.nf'
 
 include { magma } from './workflows/run_magma.nf'
+
+include { ldsc } from './workflows/run_ldsc.nf'
