@@ -134,64 +134,102 @@ workflow ldsc {
             .map { id, matrix -> matrix }
 
         //------------------------------------------------------------
-        // Optionally binarize numeric matrix
+        // Resolve window_size and binarize_top as lists
+        //------------------------------------------------------------
+        def ws_list = params.ldsc.window_size instanceof List
+            ? params.ldsc.window_size
+            : [params.ldsc.window_size]
+        def bt_list = params.ldsc.binarize_top != null
+            ? (params.ldsc.binarize_top instanceof List ? params.ldsc.binarize_top : [params.ldsc.binarize_top])
+            : [null]
+
+        // Use .first() so the single preprocessed matrix can be combined many times
+        preprocessed_val = preprocessed_ch.first()
+
+        //------------------------------------------------------------
+        // Binarize for each top value (or pass through with null tag)
         //------------------------------------------------------------
         if (params.ldsc.binarize_top != null) {
-            gene_matrix_ch = binarize_matrix(
+            binarize_input_ch = Channel.from(bt_list).combine(preprocessed_val)
+            binarize_input_ch.multiMap { bt, m -> tops: bt; matrices: m }.set { bsplit }
+
+            binarized_ch = binarize_matrix(
                 "ldsc/",
                 params.rn_runname,
-                preprocessed_ch,
-                params.ldsc.binarize_top,
-                params.ldsc.binarize_absolute ?: false,
-                params.ldsc.binarize_ascending ?: false,
+                bsplit.matrices,
+                bsplit.tops,
+                params.ldsc.binarize_absolute,
+                params.ldsc.binarize_ascending,
             ).matrix
+                .map { m ->
+                    // Extract top value as string to avoid null-check issues downstream
+                    def top = (m.name =~ /__top(\d+)\.tsv$/)[0][1]
+                    tuple(top, m)
+                }
         } else {
-            gene_matrix_ch = preprocessed_ch
+            binarized_ch = preprocessed_val.map { m -> tuple("NA", m) }
         }
 
         //------------------------------------------------------------
-        // Split gene matrix into per-condition gene set files
+        // Split each binarized matrix into per-condition gene set files
         //------------------------------------------------------------
-        gene_sets_ch = extract_conditions(gene_matrix_ch).gene_sets
-            .flatten()
-            .map { f -> tuple(f.name.replace(".geneset.txt", ""), f) }
+        // extract_conditions carries the binarize_top tag through
+        gene_sets_ch = extract_conditions(binarized_ch).gene_sets
+            .flatMap { bt, files ->
+                (files instanceof List ? files : [files])
+                    .collect { f -> tuple(bt, f.name.replace(".geneset.txt", ""), f) }
+            }
+        // gene_sets_ch: (binarize_top, condition_name, gene_set_file)
+
+        // Cross with every window_size
+        annotate_input_ch = gene_sets_ch
+            .combine(Channel.from(ws_list))
+            .map { bt, cond, gs, ws -> tuple(ws, bt, cond, gs) }
+        // annotate_input_ch: (window_size, binarize_top, condition_name, gene_set_file)
 
         //------------------------------------------------------------
-        // Create annotation files and compute LD scores per condition
+        // Create annotation files and compute LD scores
         //------------------------------------------------------------
         if (params.ldsc.calculate_ldscores_per_chr) {
+            per_chr_input_ch = annotate_input_ch
+                .combine(Channel.from(1..22))
+                .map { ws, bt, cond, gs, chr -> tuple(cond, gs, chr, ws, bt) }
+
             ldscores_ch = make_annotation_and_ldscores_per_chr(
-                    gene_sets_ch.combine(Channel.from(1..22)), reference_dir, gene_coords
+                    per_chr_input_ch, reference_dir, gene_coords
                 ).ldscores
-                .groupTuple()
-                .map { cond, chrs, files -> tuple(cond, files.flatten()) }
+                .groupTuple(by: [0, 1, 2])
+                .map { cond, ws, bt, chrs, files -> tuple(cond, ws, bt, files.flatten()) }
             ldscores_ch = collect_ldscores(ldscores_ch).ldscores
         } else {
-            ldscores_ch = make_annotation_and_ldscores(gene_sets_ch, reference_dir, gene_coords).ldscores
+            annot_input_ch = annotate_input_ch.map { ws, bt, cond, gs -> tuple(cond, gs, ws, bt) }
+            ldscores_ch = make_annotation_and_ldscores(annot_input_ch, reference_dir, gene_coords).ldscores
         }
+        // ldscores_ch: (condition_name, window_size, binarize_top, ldscores_dir)
 
         //------------------------------------------------------------
-        // Run partitioned LDSC for every phenotype x condition pair
+        // Run partitioned LDSC for every phenotype x condition x ws x bt
         //------------------------------------------------------------
         ldsc_input_ch = munged_ch
             .combine(ldscores_ch)
-            .map { pheno_id, munged, condition_name, ldscores ->
-                tuple(pheno_id, munged, condition_name, ldscores)
+            .map { pheno_id, munged, condition_name, ws, bt, ldscores ->
+                tuple(pheno_id, munged, condition_name, ldscores, ws, bt)
             }
 
         results_ch = ldsc_stratified(ldsc_input_ch, reference_dir).results
+        // results_ch: (pheno_id, condition_name, window_size, binarize_top, results_file)
 
         //------------------------------------------------------------
         // Collect all .results files and aggregate into one table
         //------------------------------------------------------------
         results_files_ch = results_ch
-            .map { pheno_id, condition_name, results_file -> results_file }
+            .map { pheno_id, condition_name, ws, bt, results_file -> results_file }
             .collect()
 
         aggregated = aggregate_ldsc_results(results_files_ch).aggregated
 
     emit:
-        aggregated = aggregated   // single TSV with all phenotypes and conditions
-        results    = results_ch   // tuple(pheno_id, condition_name, results_file)
+        aggregated = aggregated   // single TSV with all phenotypes, conditions, window_sizes, binarize_tops
+        results    = results_ch   // tuple(pheno_id, condition_name, window_size, binarize_top, results_file)
 
 }

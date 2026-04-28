@@ -120,15 +120,15 @@ process make_annotation_and_ldscores {
     container params.ldsc.container
     conda params.ldsc.conda
 
-    publishDir "$params.rn_publish_dir/ldsc/${params.rn_runname}/annotations/", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/ldsc/${params.rn_runname}/ws${window_size}/top${binarize_top}/annotations/", mode: 'symlink'
 
     input:
-        tuple val(condition_name), path(gene_set)
+        tuple val(condition_name), path(gene_set), val(window_size), val(binarize_top)
         val(reference_dir)
         path(gene_coords)
 
     output:
-        tuple val(condition_name), path("${condition_name}/"), emit: ldscores
+        tuple val(condition_name), val(window_size), val(binarize_top), path("${condition_name}/"), emit: ldscores
         path("${condition_name}_annot.log", optional: true, emit: log)
 
     script:
@@ -142,7 +142,7 @@ process make_annotation_and_ldscores {
             make_annot.py \\
                 --gene-set-file ${gene_set} \\
                 --gene-coord-file ${gene_coords} \\
-                --windowsize ${params.ldsc.window_size} \\
+                --windowsize ${window_size} \\
                 --bimfile ${plink_dir}\${chr}.bim \\
                 --annot-file ${condition_name}/${condition_name}.\${chr}.annot.gz
         done
@@ -170,26 +170,23 @@ process make_annotation_and_ldscores {
 // collected with groupTuple and staged together in the ldsc_stratified working directory.
 //
 // Typical subworkflow usage:
-//   ldscores_ch = make_annotation_and_ldscores_per_chr(
-//       gene_sets_ch.combine(Channel.from(1..22)), reference_dir, gene_coords
-//   ).ldscores
-//       .groupTuple()                          // group all chr files by condition_name
-//       .map { cond, chrs, files -> tuple(cond, files.flatten()) }
+//   ldscores_ch = make_annotation_and_ldscores_per_chr(per_chr_input, ref, coords).ldscores
+//       .groupTuple(by: [0, 1, 2])   // group by (condition, window_size, binarize_top)
+//       .map { cond, ws, bt, chrs, files -> tuple(cond, ws, bt, files.flatten()) }
 process make_annotation_and_ldscores_per_chr {
     label params.ldsc.label_high
 
     container params.ldsc.container
     conda params.ldsc.conda
 
-    //publishDir "$params.rn_publish_dir/ldsc/${params.rn_runname}/annotations/", mode: 'symlink'
-
     input:
-        tuple val(condition_name), path(gene_set), val(chr)
+        tuple val(condition_name), path(gene_set), val(chr), val(window_size), val(binarize_top)
         val(reference_dir)
         path(gene_coords)
 
     output:
-        tuple val(condition_name), val(chr),
+        // Tuple ordered so groupTuple(by:[0,1,2]) groups by (condition, window_size, binarize_top)
+        tuple val(condition_name), val(window_size), val(binarize_top), val(chr),
               path("${condition_name}.${chr}.*"), emit: ldscores
         path("${condition_name}_${chr}_annot.log", optional: true, emit: log)
 
@@ -201,7 +198,7 @@ process make_annotation_and_ldscores_per_chr {
         make_annot.py \\
             --gene-set-file ${gene_set} \\
             --gene-coord-file ${gene_coords} \\
-            --windowsize ${params.ldsc.window_size} \\
+            --windowsize ${window_size} \\
             --bimfile ${plink_dir}${chr}.bim \\
             --annot-file ${condition_name}.${chr}.annot.gz
 
@@ -229,11 +226,13 @@ process collect_ldscores {
     container params.ldsc.container
     conda params.ldsc.conda
 
+    publishDir "$params.rn_publish_dir/ldsc/${params.rn_runname}/ws${window_size}/top${binarize_top}/annotations/", mode: 'symlink'
+
     input:
-        tuple val(condition_name), path(chr_files)
+        tuple val(condition_name), val(window_size), val(binarize_top), path(chr_files)
 
     output:
-        tuple val(condition_name), path("${condition_name}/"), emit: ldscores
+        tuple val(condition_name), val(window_size), val(binarize_top), path("${condition_name}/"), emit: ldscores
 
     script:
         """
@@ -257,17 +256,18 @@ process ldsc_stratified {
     container params.ldsc.container
     conda params.ldsc.conda
 
-    publishDir "$params.rn_publish_dir/ldsc/${params.rn_runname}/results/${pheno_id}", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/ldsc/${params.rn_runname}/ws${window_size}/top${binarize_top}/results/${pheno_id}", mode: 'symlink'
 
     input:
         tuple val(pheno_id), path(munged_sumstats),
-              val(condition_name), path(condition_ldscores)
+              val(condition_name), path(condition_ldscores),
+              val(window_size), val(binarize_top)
         val(reference_dir)
 
     output:
-        tuple val(pheno_id), val(condition_name),
-              path("${pheno_id}__${condition_name}.results"), emit: results
-        path("${pheno_id}__${condition_name}.log", optional: true, emit: log)
+        tuple val(pheno_id), val(condition_name), val(window_size), val(binarize_top),
+              path("${pheno_id}__${condition_name}__ws${window_size}__top${binarize_top}.results"), emit: results
+        path("${pheno_id}__${condition_name}__ws${window_size}__top${binarize_top}.log", optional: true, emit: log)
 
     script:
         def baseline_ld = params.ldsc.baseline_ld_chr ?: "${reference_dir}/baselineLD_v2.2/baselineLD."
@@ -283,9 +283,9 @@ process ldsc_stratified {
             --thin-annot \\
             --frqfile-chr ${frq} \\
             --print-coefficients \\
-            --out ${pheno_id}__${condition_name}
+            --out ${pheno_id}__${condition_name}__ws${window_size}__top${binarize_top}
 
-        cat .command.log > ${pheno_id}__${condition_name}.log
+        cat .command.log > ${pheno_id}__${condition_name}__ws${window_size}__top${binarize_top}.log
         """
         cmd
 }
@@ -311,41 +311,8 @@ process aggregate_ldsc_results {
         path("ldsc_aggregation.log", optional: true, emit: log)
 
     script:
-        cmd =
         """
-        python3 << 'PYEOF'
-        import pandas as pd
-        import glob
-        import os
-        import re
-
-        records = []
-        for fpath in sorted(glob.glob("*.results")):
-            base = os.path.basename(fpath).replace(".results", "")
-            parts = base.split("__", 1)
-            pheno_id  = parts[0]
-            condition = parts[1] if len(parts) > 1 else "unknown"
-            df = pd.read_csv(fpath, sep="\\t")
-            df.insert(0, "condition", condition)
-            df.insert(0, "phenotype", pheno_id)
-            records.append(df)
-
-        if not records:
-            raise RuntimeError("No .results files found to aggregate")
-
-        combined = pd.concat(records, ignore_index=True)
-        combined.to_csv("ldsc_results_aggregated.tsv", sep="\\t", index=False)
-        print(f"Aggregated {len(records)} result files into ldsc_results_aggregated.tsv")
-
-        annot_indices = combined["Category"].str.extract(r'_(\\d+)\$', expand=False).dropna().unique()
-        for idx in sorted(annot_indices, key=int):
-            subset = combined[combined["Category"].str.endswith(f"_{idx}")]
-            out = f"ldsc_results_aggregated_annot{idx}.tsv"
-            subset.to_csv(out, sep="\\t", index=False)
-            print(f"Wrote {len(subset)} rows to {out}")
-        PYEOF
-
+        concat_ldsc_output.py ${results_files}
         cat .command.log > ldsc_aggregation.log
         """
-        cmd
 }

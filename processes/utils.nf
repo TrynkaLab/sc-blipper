@@ -185,10 +185,10 @@ process extract_conditions {
     conda params.ldsc.conda
 
     input:
-        path(gene_matrix)
+        tuple val(tag), path(gene_matrix)
 
     output:
-        path("*.geneset.txt"), emit: gene_sets
+        tuple val(tag), path("*.geneset.txt"), emit: gene_sets
 
     script:
         cmd =
