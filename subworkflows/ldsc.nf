@@ -1,8 +1,6 @@
 #!/usr/bin/env nextflow
 include { munge_sumstats; ensembl_to_ldsc_geneloc; make_annotation_and_ldscores; make_annotation_and_ldscores_per_chr; collect_ldscores; ldsc_stratified; aggregate_ldsc_results } from '../processes/ldsc.nf'
-include { binarize_matrix; extract_conditions; preprocess_matrix } from '../processes/utils.nf'
-include { fetch_id_linker } from '../subworkflows/id_linking.nf'
-
+include { binarize_matrix; extract_conditions } from '../processes/utils.nf'
 
 // Partitioned (stratified) LD score regression subworkflow.
 //
@@ -71,9 +69,10 @@ include { fetch_id_linker } from '../subworkflows/id_linking.nf'
 workflow ldsc {
 
     take:
-        manifest       // string path: summary statistics manifest TSV
-        gene_matrix    // string path: genes x conditions matrix (0/1 coded)
-        reference_dir  // string path: reference folder (see layout above)
+        manifest            // string path: summary statistics manifest TSV
+        gene_matrix         // channel: tuple(runname, matrix_file) preprocessed by prepare_enrichment
+        ensembl_reference   // channel: ensembl reference file from prepare_enrichment
+        reference_dir       // string path: reference folder (see layout above)
 
     main:
 
@@ -112,26 +111,19 @@ workflow ldsc {
         munged_ch = munge_sumstats(manifest_ch, reference_dir).munged
 
         //------------------------------------------------------------
-        // Fetch Ensembl reference — supplies both gene coords and id_linker
+        // Gene coordinates from Ensembl reference
         //------------------------------------------------------------
         is_ensembl = params.convert.output_namespace == "ensembl"
-        fetch_id_linker(params.rn_ensembl_version, params.convert)
-        gene_coords = ensembl_to_ldsc_geneloc(fetch_id_linker.out.ensembl_reference, is_ensembl).gene_coords
+        gene_coords = ensembl_to_ldsc_geneloc(ensembl_reference, is_ensembl).gene_coords
 
 
         //------------------------------------------------------------
-        // Preprocess matrix: standardise gene IDs via id_linker
+        // Unwrap pre-processed matrix from prepare_enrichment
         //------------------------------------------------------------
-        // TODO: Double check the gene id conversion works propely
-        prep_in = Channel.value(tuple(params.rn_runname, gene_matrix, params.enrich.transpose))
-            .combine(fetch_id_linker.out.id_linker)
-            .combine(Channel.value(file("NO_UNIVERSE")))
-            .map { id, path, transpose, id_lnk, universe ->
-                tuple(id, file(path), transpose, id_lnk, universe)
-            }
-            
-        preprocessed_ch = preprocess_matrix("ldsc/", prep_in, file("NO_SUBSET")).matrix
-            .map { id, matrix -> matrix }
+        preprocessed_ch = gene_matrix.map { id, matrix -> matrix }
+
+        // Use .first() so the single preprocessed matrix can be combined many times
+        preprocessed_val = preprocessed_ch.first()
 
         //------------------------------------------------------------
         // Resolve window_size and binarize_top as lists
@@ -142,9 +134,6 @@ workflow ldsc {
         def bt_list = params.ldsc.binarize_top != null
             ? (params.ldsc.binarize_top instanceof List ? params.ldsc.binarize_top : [params.ldsc.binarize_top])
             : [null]
-
-        // Use .first() so the single preprocessed matrix can be combined many times
-        preprocessed_val = preprocessed_ch.first()
 
         //------------------------------------------------------------
         // Binarize for each top value (or pass through with null tag)
