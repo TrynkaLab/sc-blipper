@@ -1,2 +1,6 @@
 .DS_Store
 
+# Local nf-test artifacts
+/.nf-test/
+/.nf-test.log
+/tests/.cache/

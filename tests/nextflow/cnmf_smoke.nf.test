@@ -1,0 +1,16 @@
+// nf-test smoke: invoke cnmf's CLI and assert the program output contract.
+nextflow_process {
+
+    name "cnmf smoke"
+    script "tests/nextflow/modules/cnmf_smoke.nf"
+    process "CNMF_SMOKE"
+    config "tests/nextflow/config/params/cnmf_smoke.config"
+
+    test("cnmf smoke pipeline yields K=5 consensus outputs") {
+        then {
+            assert process.success
+            assert path(process.out.spectra.get(0)).exists()   // genes x K
+            assert path(process.out.usages.get(0)).exists()    // cells x K
+        }
+    }
+}
