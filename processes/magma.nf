@@ -184,60 +184,68 @@ process magma_enrich {
     
 }
 
-process magma_assoc {
-    label params.magma.label
-    
+process prepare_magma_matrix {
+    label "small"
+
     container params.rn_container
     conda params.rn_conda
-    
-    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/${trait}/assoc", mode: 'symlink'
-        
+
     input:
-        tuple val(trait), file(magma_raw), val(database), file(matrix)
+        tuple val(database), file(matrix)
         val(transpose)
         path(universe)
         path(id_linker)
     output:
-        path("${trait}__${database}.gsa.out", emit: out)
-        path("${trait}__${database}.log", emit: logs)
-        tuple val("${database}"), path("${trait}__${database}.gsa.out"), emit: per_database
+        tuple val(database), path("${database}_magma_prepared.tsv")
     script:
     cmd =
     """
     table_proccessor.py \
     --input ${matrix} \
-    --output magma_prepared.tsv\
+    --output ${database}_magma_prepared.tsv\
     """
-    
-    if (transpose) { 
+
+    if (transpose) {
         cmd += " --transpose"
-        if (universe.getFileName().toString() != "NO_UNIVERSE") { 
+        if (universe.getFileName().toString() != "NO_UNIVERSE") {
             cmd += " --col-file ${universe}"
-        }  
-        if (id_linker.getFileName().toString() != "NO_MAPPING") { 
+        }
+        if (id_linker.getFileName().toString() != "NO_MAPPING") {
             cmd += " --update-cols ${id_linker}"
         }
     } else {
-        if (universe.getFileName().toString() != "NO_UNIVERSE") { 
+        if (universe.getFileName().toString() != "NO_UNIVERSE") {
             cmd += " --row-file ${universe}"
-        }  
-        if (id_linker.getFileName().toString() != "NO_MAPPING") { 
+        }
+        if (id_linker.getFileName().toString() != "NO_MAPPING") {
             cmd += " --update-rows ${id_linker}"
         }
     }
-    
-    cmd +=
+
+    cmd
+}
+
+process magma_assoc {
+    label params.magma.label
+
+    container params.rn_container
+    conda params.rn_conda
+
+    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/${trait}/assoc", mode: 'symlink'
+
+    input:
+        tuple val(trait), file(magma_raw), val(database), file(prepared_matrix)
+    output:
+        path("${trait}__${database}.gsa.out", emit: out)
+        path("${trait}__${database}.log", emit: logs)
+        tuple val("${database}"), path("${trait}__${database}.gsa.out"), emit: per_database
+    script:
     """
     magma --gene-results ${magma_raw} \
-    --gene-covar magma_prepared.tsv \
+    --gene-covar ${prepared_matrix} \
     --settings abbreviate=0 \
     --out ${trait}__${database}
-    
-    # Cleanup
-    rm magma_prepared.tsv
     """
-    
-    cmd
 }
 
 process magma_concat {
@@ -275,14 +283,16 @@ process generate_permuted_matrix {
     container params.rn_container
     conda params.rn_conda
 
-    publishDir "$params.rn_publish_dir/enrich/${params.rn_runname}/processed", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/enrich/${params.rn_runname}/processed", mode: 'symlink',
+        saveAs: { filename -> filename.endsWith('.gz') ? filename : null }
 
     input:
         tuple val(database), file(matrix)
         val(n_permutations)
         val(seed)
     output:
-        tuple val(database), path("${database}_permuted.tsv.gz")
+        tuple val(database), path("${database}_permuted.tsv"), emit: matrix
+        path("${database}_permuted.tsv.gz"), emit: published
     script:
     """
     permute_matrix.py \
@@ -290,7 +300,7 @@ process generate_permuted_matrix {
         --output ${database}_permuted.tsv \
         --n-permutations ${n_permutations} \
         --seed ${seed}
-    gzip ${database}_permuted.tsv
+    gzip -k ${database}_permuted.tsv
     """
 }
 

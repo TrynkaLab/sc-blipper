@@ -3,7 +3,7 @@
 // Processes
 include { gsea; ora; decoupler; concat_enrichment_results } from "../processes/enrichment.nf"
 include { preprocess_matrix } from "../processes/utils.nf"
-include { magma_assoc; magma_assoc as magma_assoc_permuted; magma_enrich; magma_concat;
+include { prepare_magma_matrix; magma_assoc; magma_assoc as magma_assoc_permuted; magma_enrich; magma_concat;
           generate_permuted_matrix; magma_permutation_stats; plot_magma_permutation;
           concat_permutation_stats } from "../processes/magma.nf"
 
@@ -36,20 +36,20 @@ workflow magma {
             other: false
         }
 
-        // Split mat channel so it can be consumed by both real assoc and permutation
-        mat_split = input_matrix_split.mat
-            .map { row -> tuple(row[0], file(row[1])) }
-            .multiMap { db, f ->
-                real: tuple(db, f)
-                perm: tuple(db, f)
-            }
-
         // Prepare magma, run gene set associations
         magma_base(params.magma, params.convert, params.rn_ensembl_version, ensembl_reference)
 
+        // Prepare input matrix once (ID mapping, universe filtering) then split for assoc and permutation
+        mat_ch = input_matrix_split.mat.map { row -> tuple(row[0], file(row[1])) }
+        prepared_matrix = prepare_magma_matrix(mat_ch, false, universe, file("NO_MAPPING"))
+        prepared_split = prepared_matrix.multiMap { db, f ->
+            for_assoc: tuple(db, f)
+            for_perm:  tuple(db, f)
+        }
+
         // Magma association with input matrix
-        magma_assoc_in = magma_base.out.raw.combine(mat_split.real)
-        magma_assoc_raw = magma_assoc(magma_assoc_in, false, universe, file("NO_MAPPING"))
+        magma_assoc_in = magma_base.out.raw.combine(prepared_split.for_assoc)
+        magma_assoc_raw = magma_assoc(magma_assoc_in)
 
         // Split assoc output so it can reach both magma_concat and (optionally) permutation stats
         assoc_out_split = magma_assoc_raw.out.multiMap { f ->
@@ -69,14 +69,14 @@ workflow magma {
         // Permutation testing (set params.magma.run_permutation_test = true to enable)
         if (params.magma.run_permutation_test) {
 
-            // Generate single permuted matrix (all N permutations per condition as separate columns)
-            perm_matrix = generate_permuted_matrix(mat_split.perm, params.magma.n_permutations, params.magma.permutation_seed)
+            // Permute the already-prepared matrix — goes straight to MAGMA, no re-preparation needed
+            perm_matrix = generate_permuted_matrix(prepared_split.for_perm, params.magma.n_permutations, params.magma.permutation_seed)
 
             // Run magma assoc on permuted matrix; suffix database name to keep outputs distinct
             perm_assoc_in = magma_base.out.raw.combine(
-                perm_matrix.map { db, f -> tuple("${db}_permuted", f) }
+                perm_matrix.matrix.map { db, f -> tuple("${db}_permuted", f) }
             )
-            perm_assoc_out = magma_assoc_permuted(perm_assoc_in, false, universe, file("NO_MAPPING"))
+            perm_assoc_out = magma_assoc_permuted(perm_assoc_in)
 
             // Parse (trait, database) from gsa.out filenames for channel joining
             real_gsa = assoc_out_split.perm_stats.map { f ->
