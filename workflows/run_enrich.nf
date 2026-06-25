@@ -2,7 +2,7 @@
 
 // Processes
 include { gsea; ora; decoupler; concat_enrichment_results; fetch_omnipath } from "../processes/enrichment.nf"
-include { magma_assoc; magma_concat;
+include { magma_assoc; magma_assoc as magma_assoc_permuted; magma_concat;
           generate_permuted_matrix; magma_permutation_stats; plot_magma_permutation } from "../processes/magma.nf"
 
 // Subworkflows
@@ -125,7 +125,7 @@ workflow enrich {
                 perm_assoc_in = magma_base.out.raw.combine(
                     perm_matrix.map { db, f -> tuple("${db}_permuted", f) }
                 )
-                perm_assoc_out = magma_assoc(perm_assoc_in, false, universe, file("NO_MAPPING"))
+                perm_assoc_out = magma_assoc_permuted(perm_assoc_in, false, universe, file("NO_MAPPING"))
 
                 // Parse (trait, database) from gsa.out filenames for channel joining
                 real_gsa = assoc_out_split.perm_stats.map { f ->
