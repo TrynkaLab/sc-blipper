@@ -1,8 +1,18 @@
 .DS_Store
 
-# Local nf-test artifacts
+# Test artifacts
+/tests/.cache/
+**/__pycache__/
+*.py[cod]
+
+# nf-test defaults from ad-hoc manual runs
 /.nf-test/
 /.nf-test.log
-/tests/.cache/
+/.nf-test-*.nf
+
+# Nextflow direct-run artifacts
+/.nextflow*
+/work/
+/condaenv.*.requirements.txt
 
 prompts.md
