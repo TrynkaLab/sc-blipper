@@ -1,0 +1,34 @@
+name: sc-blipper_gpu
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python==3.10
+  - pip
+  - zlib
+  - libcurl
+  - openssl
+  - curl
+  - r-seurat>=5
+  - r-anndata
+  - r-reticulate
+  - r-optparse
+  - r-remotes
+  - r-ggplotify
+  - r-pheatmap
+  - r-ggraph
+  - r-igraph
+  - r-rcurl
+  - r-r.utils
+  - bioconductor-biomart
+  - bioconductor-fgsea>=1.32
+  - pip:
+    - h5py
+    - cnmf
+    - pandas
+    - scanpy
+    - scikit-learn
+    - scikit-misc
+    - decoupler>=2.1
+    - torch
