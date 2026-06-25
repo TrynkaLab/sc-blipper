@@ -47,7 +47,7 @@ def main():
 
     records = []
     for _, row in real.iterrows():
-        condition = row["VARIABLE"]
+        condition = str(row["VARIABLE"])
         real_beta = float(row["BETA"])
 
         pattern = re.compile(rf"^{re.escape(condition)}_perm_\d+$")

@@ -275,6 +275,8 @@ process generate_permuted_matrix {
     container params.rn_container
     conda params.rn_conda
 
+    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/permutation", mode: 'symlink'
+
     input:
         tuple val(database), file(matrix)
         val(n_permutations)

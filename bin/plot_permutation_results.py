@@ -40,7 +40,7 @@ def main():
 
     with PdfPages(args.output) as pdf:
         for _, row in stats.iterrows():
-            condition = row["condition"]
+            condition = str(row["condition"])
             real_beta = float(row["real_beta"])
             emp_p = float(row["empirical_pval"])
             norm_p = float(row["normal_pval"])
