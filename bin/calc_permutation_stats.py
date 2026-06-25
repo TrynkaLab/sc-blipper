@@ -60,7 +60,9 @@ def main():
         perm_mean = float(np.mean(perm_betas))
         perm_sd = float(np.std(perm_betas, ddof=1))
         z_score = (real_beta - perm_mean) / perm_sd if perm_sd > 0 else float("nan")
-        empirical_pval = float(np.mean(np.abs(perm_betas) >= np.abs(real_beta)))
+        n = len(perm_betas)
+        r = int(np.sum(np.abs(perm_betas) >= np.abs(real_beta)))
+        empirical_pval = (r + 1) / (n + 1)
         norm_pval = normal_pval(z_score)
 
         records.append({
