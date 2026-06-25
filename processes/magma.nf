@@ -275,19 +275,22 @@ process generate_permuted_matrix {
     container params.rn_container
     conda params.rn_conda
 
-    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/permutation", mode: 'symlink'
+    publishDir "$params.rn_publish_dir/enrich/${params.rn_runname}/processed", mode: 'symlink'
 
     input:
         tuple val(database), file(matrix)
         val(n_permutations)
+        val(seed)
     output:
-        tuple val(database), path("${database}_permuted.tsv")
+        tuple val(database), path("${database}_permuted.tsv.gz")
     script:
     """
     permute_matrix.py \
         --input ${matrix} \
         --output ${database}_permuted.tsv \
-        --n-permutations ${n_permutations}
+        --n-permutations ${n_permutations} \
+        --seed ${seed}
+    gzip ${database}_permuted.tsv
     """
 }
 
@@ -334,6 +337,25 @@ process plot_magma_permutation {
         --output ${trait}__${database}_permutation_plots.pdf \
         --trait ${trait} \
         --database ${database}
+    """
+}
+
+process concat_permutation_stats {
+    label "small"
+
+    container params.rn_container
+    conda params.rn_conda
+
+    publishDir "$params.rn_publish_dir/enrich/${params.rn_runname}/final", mode: 'symlink'
+
+    input:
+        tuple val(id), path(files)
+    output:
+        path("${id}_permutation_stats.tsv.gz")
+    script:
+    """
+    awk 'FNR==1 && NR!=1{next}{print}' ${files} > ${id}_permutation_stats.tsv
+    gzip ${id}_permutation_stats.tsv
     """
 }
 

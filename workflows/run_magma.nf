@@ -4,7 +4,8 @@
 include { gsea; ora; decoupler; concat_enrichment_results } from "../processes/enrichment.nf"
 include { preprocess_matrix } from "../processes/utils.nf"
 include { magma_assoc; magma_assoc as magma_assoc_permuted; magma_enrich; magma_concat;
-          generate_permuted_matrix; magma_permutation_stats; plot_magma_permutation } from "../processes/magma.nf"
+          generate_permuted_matrix; magma_permutation_stats; plot_magma_permutation;
+          concat_permutation_stats } from "../processes/magma.nf"
 
 // Subworkflows
 include { perpare_enrichment } from "../subworkflows/prepare_enrichment.nf"
@@ -69,7 +70,7 @@ workflow magma {
         if (params.magma.run_permutation_test) {
 
             // Generate single permuted matrix (all N permutations per condition as separate columns)
-            perm_matrix = generate_permuted_matrix(mat_split.perm, params.magma.n_permutations)
+            perm_matrix = generate_permuted_matrix(mat_split.perm, params.magma.n_permutations, params.magma.permutation_seed)
 
             // Run magma assoc on permuted matrix; suffix database name to keep outputs distinct
             perm_assoc_in = magma_base.out.raw.combine(
@@ -103,9 +104,19 @@ workflow magma {
             stats_in = real_gsa.join(perm_gsa_split.stats, by: [0, 1])
             perm_stats_out = magma_permutation_stats(stats_in)
 
+            // Split stats output for plot and concat
+            perm_stats_split = perm_stats_out.multiMap { trait, db, f ->
+                for_plot:   tuple(trait, db, f)
+                for_concat: f
+            }
+
             // Plot null distributions
-            plot_in = perm_stats_out.join(perm_gsa_split.plot, by: [0, 1])
+            plot_in = perm_stats_split.for_plot.join(perm_gsa_split.plot, by: [0, 1])
             plot_magma_permutation(plot_in)
+
+            // Concat all permutation stats into a single file
+            concat_perm_in = perm_stats_split.for_concat.collect().map { files -> tuple(params.rn_runname, files) }
+            concat_permutation_stats(concat_perm_in)
         }
 
         //----------------------------------------------------------------------------------
