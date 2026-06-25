@@ -180,6 +180,10 @@ def _to_checked_array(X):
     # TODO: sparse RAM path. Sparse X is still densified by this prototype; add a dense-size
     # preflight and/or row-blocked sparse loading before materializing full X in host RAM.
     Xnp = X.toarray() if hasattr(X, "toarray") else np.asarray(X)
+    if Xnp.ndim != 2:
+        raise ValueError("NMF input X must be a 2D matrix")
+    if 0 in Xnp.shape:
+        raise ValueError("NMF input X must have at least one row and one column")
     if not np.isfinite(Xnp).all():
         raise ValueError("NMF input X contains NaN/inf")
     if Xnp.size and Xnp.min() < 0:
@@ -318,7 +322,14 @@ def _to_nmf_output(H, W):
 
 
 def factorize_nmf_gpu(X, nmf_kwargs, gpu_kwargs=None):
-    """Standalone Frobenius MU NMF: X -> (spectra, usages) = (H, W)."""
+    """Standalone Frobenius MU NMF: X -> (spectra, usages) = (H, W).
+
+    CUDA is optional: CPU and MPS paths do not require CUDA. CUDA execution
+    requires an installed PyTorch build where `torch.cuda.is_available()` is
+    true; this function does not pin a CUDA toolkit/runtime version itself.
+    Explicit `dtype='bf16'` additionally requires PyTorch to report
+    `torch.cuda.is_bf16_supported()` for the selected CUDA device.
+    """
     torch = _loud_import_torch()
 
     opt = _resolve_gpu_opts(gpu_kwargs)
@@ -326,6 +337,8 @@ def factorize_nmf_gpu(X, nmf_kwargs, gpu_kwargs=None):
     dtype = _select_storage(torch, opt["dtype"], device)
 
     k        = int(nmf_kwargs["n_components"])
+    if k < 1:
+        raise ValueError("n_components must be >= 1")
     max_iter = int(nmf_kwargs.get("max_iter", DEFAULT_NMF["max_iter"]))
     tol      = float(nmf_kwargs.get("tol", DEFAULT_NMF["tol"]))
     eps      = _to_device_eps(torch, opt["eps"], dtype, device)
@@ -341,7 +354,7 @@ def factorize_nmf_gpu(X, nmf_kwargs, gpu_kwargs=None):
     W, H = _to_device_factors(torch, W0, H0, dtype, device)
 
     step, block = _execution_plan(torch, opt, device)
-    tf32 = opt["allow_tf32"] and dtype is torch.float32
+    tf32 = device.startswith("cuda") and opt["allow_tf32"] and dtype is torch.float32
 
     W, H = _fit_mu(torch, Xg, W, H, eps, max_iter, tol, step, block, tf32, device)
     return _to_nmf_output(H, W)
