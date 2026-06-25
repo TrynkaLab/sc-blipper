@@ -4,3 +4,5 @@
 /.nf-test/
 /.nf-test.log
 /tests/.cache/
+
+prompts.md

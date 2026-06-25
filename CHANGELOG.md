@@ -2,6 +2,7 @@
 
 ### Major updates
 - Added stratifed LDSC workflow
+- Added permutation option to MAGMA workflow
 
 ### Minor changes
 - Added script to fetch and cache omnipath resources rather then requesting at each job

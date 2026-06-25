@@ -269,6 +269,72 @@ process magma_concat {
     """
 }
 
+process generate_permuted_matrix {
+    label "small"
+
+    container params.rn_container
+    conda params.rn_conda
+
+    input:
+        tuple val(database), file(matrix)
+        val(n_permutations)
+    output:
+        tuple val(database), path("${database}_permuted.tsv")
+    script:
+    """
+    permute_matrix.py \
+        --input ${matrix} \
+        --output ${database}_permuted.tsv \
+        --n-permutations ${n_permutations}
+    """
+}
+
+process magma_permutation_stats {
+    label "small"
+
+    container params.rn_container
+    conda params.rn_conda
+
+    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/${trait}/permutation", mode: 'symlink'
+
+    input:
+        tuple val(trait), val(database), file(real_gsa), file(permuted_gsa)
+    output:
+        tuple val(trait), val(database), path("${trait}__${database}_permutation_stats.tsv")
+    script:
+    """
+    calc_permutation_stats.py \
+        --real-gsa ${real_gsa} \
+        --permuted-gsa ${permuted_gsa} \
+        --output ${trait}__${database}_permutation_stats.tsv \
+        --trait ${trait} \
+        --database ${database}
+    """
+}
+
+process plot_magma_permutation {
+    label "small"
+
+    container params.rn_container
+    conda params.rn_conda
+
+    publishDir "$params.rn_publish_dir/magma/${params.rn_runname}/${trait}/permutation", mode: 'symlink'
+
+    input:
+        tuple val(trait), val(database), file(stats), file(permuted_gsa)
+    output:
+        path("${trait}__${database}_permutation_plots.pdf")
+    script:
+    """
+    plot_permutation_results.py \
+        --stats ${stats} \
+        --permuted-gsa ${permuted_gsa} \
+        --output ${trait}__${database}_permutation_plots.pdf \
+        --trait ${trait} \
+        --database ${database}
+    """
+}
+
 process magma_write_manifest {
     label "tiny"
     
