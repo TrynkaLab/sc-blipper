@@ -278,7 +278,7 @@ process magma_concat {
 }
 
 process generate_permuted_matrix {
-    label "small"
+    label params.magma.label
 
     container params.rn_container
     conda params.rn_conda
