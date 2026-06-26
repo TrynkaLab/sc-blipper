@@ -3,7 +3,7 @@
 // Processes
 include { gsea; ora; decoupler; concat_enrichment_results; fetch_omnipath } from "../processes/enrichment.nf"
 include { prepare_magma_matrix; magma_assoc; magma_assoc as magma_assoc_permuted; magma_concat;
-          generate_permuted_matrix; magma_permutation_stats; plot_magma_permutation;
+          generate_permuted_matrix; merge_permuted_gsa; magma_permutation_stats; plot_magma_permutation;
           concat_permutation_stats } from "../processes/magma.nf"
 
 // Subworkflows
@@ -119,33 +119,52 @@ workflow enrich {
             // Permutation testing (set params.magma.run_permutation_test = true to enable)
             if (params.magma.run_permutation_test) {
 
-                // Permute the already-prepared matrix — goes straight to MAGMA, no re-preparation needed
-                perm_matrix = generate_permuted_matrix(prepared_split.for_perm, params.magma.n_permutations, params.magma.permutation_seed)
+                // Compute block ranges from permutation_block_ratio
+                def n         = params.magma.n_permutations
+                def blockSize = Math.max(1, (int) Math.ceil(params.magma.permutation_block_ratio * n))
+                def blocks    = []
+                def blkStart  = 1
+                def blkIdx    = 0
+                while (blkStart <= n) {
+                    def blkEnd = Math.min(blkStart + blockSize - 1, n)
+                    blocks << [blkIdx, blkStart, blkEnd]
+                    blkStart = blkEnd + 1
+                    blkIdx++
+                }
+                def perm_blocks_ch = Channel.fromList(blocks)
 
-                // Run magma assoc on permuted matrix; suffix database name to keep outputs distinct
+                // Cross each (database, matrix) with each block spec, then generate per-block permuted matrices
+                perm_matrix_in = prepared_split.for_perm.combine(perm_blocks_ch)
+                perm_matrix = generate_permuted_matrix(perm_matrix_in, params.magma.n_permutations, params.magma.permutation_seed)
+
+                // Run magma assoc per block; tag db name with block index to keep outputs distinct
                 perm_assoc_in = magma_base.out.raw.combine(
-                    perm_matrix.matrix.map { db, f -> tuple("${db}_permuted", f) }
+                    perm_matrix.matrix.map { db, bidx, f -> tuple("${db}_permuted_block${bidx}", f) }
                 )
                 perm_assoc_out = magma_assoc_permuted(perm_assoc_in)
 
-                // Parse (trait, database) from gsa.out filenames for channel joining
+                // Parse (trait, db) from filename — strip _permuted_block{N} suffix
+                perm_gsa_blocks = perm_assoc_out.out.map { f ->
+                    def s      = f.name.replace('.gsa.out', '')
+                    def i      = s.indexOf('__')
+                    def trait  = s.substring(0, i)
+                    def db_raw = s.substring(i + 2)
+                    def db     = db_raw.replaceAll(/_permuted_block\d+$/, '')
+                    tuple(trait, db, f)
+                }
+
+                // Group all block outputs for the same (trait, db), then merge into a single gsa.out
+                merged_perm_gsa = merge_permuted_gsa(perm_gsa_blocks.groupTuple(by: [0, 1]))
+
+                // Parse (trait, database) from real gsa.out filenames for channel joining
                 real_gsa = assoc_out_split.perm_stats.map { f ->
                     def s = f.name.replace('.gsa.out', '')
                     def i = s.indexOf('__')
                     tuple(s.substring(0, i), s.substring(i + 2), f)
                 }
 
-                perm_gsa = perm_assoc_out.out.map { f ->
-                    def s = f.name.replace('.gsa.out', '')
-                    def i = s.indexOf('__')
-                    def trait = s.substring(0, i)
-                    def db_perm = s.substring(i + 2)
-                    def db = db_perm.substring(0, db_perm.lastIndexOf('_permuted'))
-                    tuple(trait, db, f)
-                }
-
-                // Split perm_gsa for use in both stats and plot processes
-                perm_gsa_split = perm_gsa.multiMap { trait, db, f ->
+                // Split merged perm_gsa for use in both stats and plot processes
+                perm_gsa_split = merged_perm_gsa.multiMap { trait, db, f ->
                     stats: tuple(trait, db, f)
                     plot:  tuple(trait, db, f)
                 }

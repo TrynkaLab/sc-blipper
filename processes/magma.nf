@@ -287,20 +287,38 @@ process generate_permuted_matrix {
         saveAs: { filename -> filename.endsWith('.gz') ? filename : null }
 
     input:
-        tuple val(database), file(matrix)
+        tuple val(database), file(matrix), val(block_idx), val(start_perm), val(end_perm)
         val(n_permutations)
         val(seed)
     output:
-        tuple val(database), path("${database}_permuted.tsv"), emit: matrix
-        path("${database}_permuted.tsv.gz"), emit: published
+        tuple val(database), val(block_idx), path("${database}_permuted_block${block_idx}.tsv"), emit: matrix
+        path("${database}_permuted_block${block_idx}.tsv.gz"), emit: published
     script:
     """
     permute_matrix.py \
         --input ${matrix} \
-        --output ${database}_permuted.tsv \
+        --output ${database}_permuted_block${block_idx}.tsv \
         --n-permutations ${n_permutations} \
+        --start-perm ${start_perm} \
+        --end-perm ${end_perm} \
         --seed ${seed}
-    gzip -k ${database}_permuted.tsv
+    gzip -k ${database}_permuted_block${block_idx}.tsv
+    """
+}
+
+process merge_permuted_gsa {
+    label "tiny"
+
+    container params.rn_container
+    conda params.rn_conda
+
+    input:
+        tuple val(trait), val(database), path(block_files)
+    output:
+        tuple val(trait), val(database), path("${trait}__${database}_permuted.gsa.out")
+    script:
+    """
+    merge_permuted_gsa.py --inputs ${block_files} --output ${trait}__${database}_permuted.gsa.out
     """
 }
 

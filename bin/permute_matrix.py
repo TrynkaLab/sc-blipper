@@ -11,11 +11,17 @@ def main():
     )
     parser.add_argument("--input", required=True, help="Input matrix (TSV/CSV, rows=genes, cols=conditions)")
     parser.add_argument("--output", required=True, help="Output permuted matrix (TSV)")
-    parser.add_argument("--n-permutations", type=int, required=True, help="Number of permutations per column")
+    parser.add_argument("--n-permutations", type=int, required=True, help="Total number of permutations per column")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    parser.add_argument("--start-perm", type=int, default=1, help="First permutation index to generate (1-based, inclusive)")
+    parser.add_argument("--end-perm", type=int, default=None, help="Last permutation index to generate (1-based, inclusive; defaults to --n-permutations)")
     args = parser.parse_args()
 
-    rng = np.random.default_rng(args.seed)
+    start = args.start_perm
+    end = args.end_perm if args.end_perm is not None else args.n_permutations
+
+    # Offset seed by block start so each block is independently reproducible
+    rng = np.random.default_rng(args.seed + (start - 1))
 
     fname = args.input.replace(".gz", "")
     sep = "," if fname.endswith(".csv") else "\t"
@@ -26,12 +32,12 @@ def main():
     for col in df.columns:
         col_safe = col.replace(" ", "_")
         vals = df[col].values
-        for i in range(1, args.n_permutations + 1):
+        for i in range(start, end + 1):
             result[f"{col_safe}_perm_{i}"] = rng.permutation(vals)
 
     out = pd.DataFrame(result, index=df.index)
     out.to_csv(args.output, sep="\t", index=True, index_label="rowid")
-    print(f"Written {out.shape[1]} permuted columns ({df.shape[1]} conditions x {args.n_permutations} permutations)")
+    print(f"Written {out.shape[1]} permuted columns ({df.shape[1]} conditions x {end - start + 1} permutations, indices {start}-{end})")
 
 
 if __name__ == "__main__":
