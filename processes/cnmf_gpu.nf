@@ -25,6 +25,7 @@ process cnmf_factorize_gpu {
         def gpu_compile = gpu_factorize.compile != null ? gpu_factorize.compile : gpu.compile
         def gpu_eps = gpu_factorize.eps != null ? gpu_factorize.eps : gpu.eps
         def gpu_check_every = gpu_factorize.check_every != null ? gpu_factorize.check_every : gpu.check_every
+        def gpu_batch = gpu_factorize.batch != null ? gpu_factorize.batch : gpu.batch
 
         // Only emit explicit GPU flags so cNMF remains the source of runtime defaults.
         def gpu_device_arg = gpu_device != null ? "--gpu-device ${gpu_device}" : ""
@@ -34,9 +35,10 @@ process cnmf_factorize_gpu {
         def gpu_compile_arg = gpu_compile != null && gpu_compile.toString().trim().toLowerCase() in ["1", "true", "yes", "on"] ? "--gpu-compile" : ""
         def gpu_eps_arg = gpu_eps != null ? "--gpu-eps ${gpu_eps}" : ""
         def gpu_check_every_arg = gpu_check_every != null ? "--gpu-check-every ${gpu_check_every}" : ""
+        def gpu_batch_arg = gpu_batch != null ? "--gpu-batch ${gpu_batch}" : ""      // factorize-only: replicates per GPU launch
         // Join only the flags that are set onto ONE line, so an unset/false optional flag can't leave a
         // blank line that breaks the shell line-continuation (previously: `--gpu-allow-tf32: command not found`).
-        def gpu_extra_args = [gpu_device_arg, gpu_dtype_arg, gpu_compile_block_arg, gpu_allow_tf32_arg, gpu_compile_arg, gpu_eps_arg, gpu_check_every_arg].findAll { it }.join(' ')
+        def gpu_extra_args = [gpu_device_arg, gpu_dtype_arg, gpu_compile_block_arg, gpu_allow_tf32_arg, gpu_compile_arg, gpu_eps_arg, gpu_check_every_arg, gpu_batch_arg].findAll { it }.join(' ')
 
         cmd =
         """
