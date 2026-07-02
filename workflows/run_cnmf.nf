@@ -2,6 +2,7 @@
 
 // Processes
 include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc; cnmf_qc_summary } from "../processes/cnmf.nf"
+include { cnmf_factorize_gpu; cnmf_consensus_gpu } from "../processes/cnmf_gpu.nf"
 include { gsea; ora; decoupler; fetch_omnipath } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
@@ -62,7 +63,11 @@ workflow cnmf {
          .flatMap()
         
         // Perform the factorizations
-        cnmf_factorize_out = cnmf_factorize(cnmf_factorize_in, cnmf_workers)
+        if (params.cnmf_gpu?.enabled) {
+            cnmf_factorize_out = cnmf_factorize_gpu(cnmf_factorize_in, cnmf_workers)
+        } else {
+            cnmf_factorize_out = cnmf_factorize(cnmf_factorize_in, cnmf_workers)
+        }
         
         // Wait for all the workers to complete, then:
         // Flatten all the output into a single path object
@@ -78,9 +83,17 @@ workflow cnmf {
         
         // Create consensus with or without h5ad
         if (params.cnmf.save_h5ad) {
-            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, cnmf_staged.cnmf_in.map{row -> row[1]})
+            if (params.cnmf_gpu?.enabled) {
+                cnmf_out = cnmf_consensus_gpu(cnmf_consensus_in, cnmf_combine_out, cnmf_staged.cnmf_in.map{row -> row[1]})
+            } else {
+                cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, cnmf_staged.cnmf_in.map{row -> row[1]})
+            }
         } else {
-            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
+            if (params.cnmf_gpu?.enabled) {
+                cnmf_out = cnmf_consensus_gpu(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
+            } else {
+                cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
+            }
         }
         // This is the end of the cnmf processing
         
