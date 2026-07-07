@@ -228,6 +228,13 @@ def run_pipeline(args):
     spectra_tpm = load_spectra(args.spectra)
     score_df = load_spectra(args.spectra_scores) if args.spectra_scores else spectra_tpm
 
+    if args.geps:
+        missing_geps = [g for g in args.geps if g not in spectra_tpm.index]
+        if missing_geps:
+            raise ValueError(f"Requested GEP(s) not found in spectra: {missing_geps}")
+        spectra_tpm = spectra_tpm.loc[args.geps]
+        score_df = score_df.loc[args.geps]
+
     hvgs = reconcile_genes(adata, hvgs, spectra_tpm, args.output)
 
     print("Computing baseline program usage")
@@ -264,6 +271,8 @@ if __name__ == "__main__":
     parser.add_argument("--coexp", default=None, help="Optional precomputed gene coexpression h5ad")
     parser.add_argument("--spectra-scores", default=None,
                          help="Optional spectra scores (SD units) used for ranking genes; defaults to --spectra")
+    parser.add_argument("--geps", nargs="+", default=None,
+                         help="Optional subset of GEP/program names (spectra row labels) to run ablation for; defaults to all")
     parser.add_argument("--output", required=True, help="Output prefix")
     parser.add_argument("--coexp-absolute", action="store_true",
                          help="Use absolute co-expression values instead of ignoring values < 0")
