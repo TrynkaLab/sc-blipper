@@ -119,7 +119,9 @@ def ablate_gene(spectra_row, coexp_row, hvgs, gene_std, norm_tpm_hvg, absolute):
         values = values.abs()
 
     sum_abs_coexp = coexp_row.abs().sum()
-    n_high_coexp = int((values > 0.9).sum())
+    n_gt_90 = int((values > 0.9).sum())
+    n_gt_75 = int((values > 0.75).sum())
+    n_gt_50 = int((values > 0.5).sum())
 
     clipped = values.clip(lower=0)
     weights = 1 - clipped
@@ -127,7 +129,9 @@ def ablate_gene(spectra_row, coexp_row, hvgs, gene_std, norm_tpm_hvg, absolute):
     stats = dict(
         sum_abs_coexp=sum_abs_coexp,
         sum_clipped_weights=weights.sum(),
-        n_high_coexp=n_high_coexp,
+        n_gt_90=n_gt_90,
+        n_gt_75=n_gt_75,
+        n_gt_50=n_gt_50,
     )
 
     # Ablate the spectra
@@ -173,9 +177,14 @@ def ols(x, y):
 
 
 def run_ablations(spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
-                       spectra_tpm_rf, baseline_usages, ntop, absolute):
+                       spectra_tpm_rf, baseline_usages, ntop, absolute, geps):
     results = []
     for program in spectra_tpm.index:
+        
+        if geps:
+            if program not in geps:
+                continue
+        
         spectra_row = spectra_tpm.loc[program]
         score_row = score_df.loc[program]
         baseline_usage_vec = baseline_usages[program].values
@@ -199,7 +208,9 @@ def run_ablations(spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
                 r2_inv=1-r2,
                 sum_abs_coexp=stats["sum_abs_coexp"],
                 sum_clipped_weights=stats["sum_clipped_weights"],
-                n_high_coexp=stats["n_high_coexp"],
+                n_gt_90=stats["n_gt_90"],
+                n_gt_75=stats["n_gt_75"],
+                n_gt_50=stats["n_gt_50"],
             ))
 
         results.append(pd.DataFrame(rows))
@@ -222,19 +233,20 @@ def plot_r2_by_rank(results_df, output_pdf_path):
 
 
 def run_pipeline(args):
+   
+    # Load spectra
+    spectra_tpm = load_spectra(args.spectra)
+    spectra_tpm.index = spectra_tpm.index.astype(str)
+    
+    score_df = load_spectra(args.spectra_scores) if args.spectra_scores else spectra_tpm
+    score_df.index = score_df.index.astype(str)
+    
+    print(f"Loaded spectra TPM with geps {spectra_tpm.index} from {args.spectra}")
+    
     print(f"Loading h5ad from {args.h5ad}")
     adata = sc.read_h5ad(args.h5ad)
     hvgs = load_hvgs(args.hvg)
-    spectra_tpm = load_spectra(args.spectra)
-    score_df = load_spectra(args.spectra_scores) if args.spectra_scores else spectra_tpm
-
-    if args.geps:
-        missing_geps = [g for g in args.geps if g not in spectra_tpm.index]
-        if missing_geps:
-            raise ValueError(f"Requested GEP(s) not found in spectra: {missing_geps}")
-        spectra_tpm = spectra_tpm.loc[args.geps]
-        score_df = score_df.loc[args.geps]
-
+    
     hvgs = reconcile_genes(adata, hvgs, spectra_tpm, args.output)
 
     print("Computing baseline program usage")
@@ -246,10 +258,19 @@ def run_pipeline(args):
     coexp_genes = sorted(set(adata.var_names) & set(spectra_tpm.columns))
     coexp_df = load_or_compute_coexpression(args.coexp, adata, coexp_genes, args.output)
 
-    print(f"Running per-gene ablation for {spectra_tpm.shape[0]} programs (ntop={args.ntop})")
+    if args.geps:
+        missing_geps = [g for g in args.geps if g not in spectra_tpm.index]
+        if missing_geps:
+            raise ValueError(f"Requested GEP(s) not found in spectra: {missing_geps}")
+        ngeps = len(args.geps)
+    else:
+        ngeps = spectra_tpm.shape[0]
+
+
+    print(f"Running per-gene ablation for {ngeps} programs (ntop={args.ntop})")
     results_df = run_ablations(
         spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
-        spectra_tpm_rf, baseline_usages, args.ntop, args.coexp_absolute,
+        spectra_tpm_rf, baseline_usages, args.ntop, args.coexp_absolute, args.geps
     )
 
     tsv_path = f"{args.output}.ablation_results.tsv"
