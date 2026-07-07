@@ -1,4 +1,4 @@
-name: sc-blipper_gpu
+name: sc-blipper-gpu
 channels:
   - conda-forge
   - bioconda
@@ -25,10 +25,8 @@ dependencies:
   - bioconductor-fgsea>=1.32
   - pip:
     - h5py
-    - cnmf
+    - "cnmf[gpu] @ git+https://github.com/TrynkaLab/cNMF.git"
     - pandas
     - scanpy
-    - scikit-learn
     - scikit-misc
     - decoupler>=2.1
-    - torch
