@@ -61,7 +61,7 @@ def compute_baseline_usage(adata, hvgs, spectra_tpm, gene_std, nmf_params_path):
     refit_nmf_kwargs = yaml.load(open(nmf_params_path), Loader=yaml.FullLoader)
     refit_nmf_kwargs.update(dict(
         n_components=spectra_tpm_rf.shape[0],
-        H=spectra_tpm_rf.values,
+        H=spectra_tpm_rf.values.astype(norm_tpm_hvg.dtype),
         update_H=False,
     ))
     usages, _, _ = non_negative_factorization(norm_tpm_hvg, **refit_nmf_kwargs)
