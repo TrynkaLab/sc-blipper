@@ -196,7 +196,7 @@ def run_ablations(spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
                 beta=beta,
                 intercept=intercept,
                 r2=r2,
-                score=1-r2,
+                r2_inv=1-r2,
                 sum_abs_coexp=stats["sum_abs_coexp"],
                 sum_clipped_weights=stats["sum_clipped_weights"],
                 n_high_coexp=stats["n_high_coexp"],
@@ -211,7 +211,7 @@ def plot_r2_by_rank(results_df, output_pdf_path):
     with PdfPages(output_pdf_path) as pdf:
         for program, df_program in results_df.groupby("gep"):
             fig, ax = plt.subplots(figsize=(6, 4))
-            ax.plot(df_program["rank"], df_program["r2"], marker="o", linewidth=1, markersize=3)
+            ax.plot(df_program["rank"], df_program["r2_inv"], marker="o", linewidth=1, markersize=3)
             ax.set_xlabel("Gene rank in GEP")
             ax.set_ylabel("R2 (ablated vs. true usage)")
             ax.set_title(program)
