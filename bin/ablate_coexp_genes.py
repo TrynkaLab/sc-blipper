@@ -213,7 +213,7 @@ def plot_r2_by_rank(results_df, output_pdf_path):
             fig, ax = plt.subplots(figsize=(6, 4))
             ax.plot(df_program["rank"], df_program["r2_inv"], marker="o", linewidth=1, markersize=3)
             ax.set_xlabel("Gene rank in GEP")
-            ax.set_ylabel("R2 (ablated vs. true usage)")
+            ax.set_ylabel("1 - R2 (ablated vs. true usage)")
             ax.set_title(program)
             fig.tight_layout()
             pdf.savefig(fig)
