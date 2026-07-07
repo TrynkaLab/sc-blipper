@@ -6,6 +6,7 @@ import scanpy as sc
 import anndata as ad
 import scipy.sparse as sp
 import yaml
+from tqdm import tqdm
 from sklearn.decomposition import non_negative_factorization
 from sklearn.metrics import r2_score
 import matplotlib
@@ -175,14 +176,13 @@ def run_ablations(spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
                        spectra_tpm_rf, baseline_usages, ntop, absolute):
     results = []
     for program in spectra_tpm.index:
-        print(f"Ablating genes for program {program}")
-
         spectra_row = spectra_tpm.loc[program]
         score_row = score_df.loc[program]
         baseline_usage_vec = baseline_usages[program].values
-        
+
         rows = []
-        for gene, rank, score in rank_genes(score_row, ntop):
+        ranked_genes = rank_genes(score_row, ntop)
+        for gene, rank, score in tqdm(ranked_genes, desc=f"Ablating {program}"):
             coexp_row = coexp_df.loc[gene]
             ablated_usage, stats = ablate_gene( spectra_row, coexp_row, hvgs, gene_std, norm_tpm_hvg, absolute )
             beta, intercept, r2 = ols(baseline_usage_vec, ablated_usage)
