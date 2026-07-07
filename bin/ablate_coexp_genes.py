@@ -218,6 +218,114 @@ def run_ablations(spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
     return pd.concat(results, ignore_index=True)
 
 
+def get_expression_df(adata, genes):
+    sub = adata[:, genes].copy()
+    sc.pp.log1p(sub)
+    X = np.asarray(sub.X.todense()) if sp.issparse(sub.X) else np.asarray(sub.X)
+    return pd.DataFrame(X, index=adata.obs_names, columns=genes)
+
+
+def plot_true_vs_ablated_scatter(gene, ablated_usage_df, baseline_usages, output_pdf_path):
+    with PdfPages(output_pdf_path) as pdf:
+        for gep in ablated_usage_df.columns:
+            true_usage = baseline_usages[gep].values
+            ablated_usage = ablated_usage_df[gep].values
+            fig, ax = plt.subplots(figsize=(5, 5))
+            ax.scatter(true_usage, ablated_usage, s=5, alpha=0.4, edgecolor="none")
+            lo = min(true_usage.min(), ablated_usage.min())
+            hi = max(true_usage.max(), ablated_usage.max())
+            ax.plot([lo, hi], [lo, hi], "k--", linewidth=1)
+            ax.set_xlabel("True GEP usage")
+            ax.set_ylabel(f"Ablated GEP usage ({gene} removed)")
+            ax.set_title(gep)
+            fig.tight_layout()
+            pdf.savefig(fig)
+            plt.close(fig)
+    print(f"True vs ablated usage scatter plots written to {output_pdf_path}")
+
+
+def plot_ablated_usage_matrix(gene, ablated_usage_df, output_pdf_path):
+    order = ablated_usage_df.mean(axis=1).sort_values(ascending=False).index
+    matrix = ablated_usage_df.loc[order]
+    fig, ax = plt.subplots(figsize=(max(4, 0.6 * matrix.shape[1]), 8))
+    im = ax.imshow(matrix.values, aspect="auto", cmap="viridis")
+    ax.set_xticks(range(matrix.shape[1]))
+    ax.set_xticklabels(matrix.columns, rotation=90)
+    ax.set_yticks([])
+    ax.set_xlabel("GEP")
+    ax.set_ylabel("Cells")
+    ax.set_title(f"Ablated GEP usage ({gene} removed)")
+    fig.colorbar(im, ax=ax, label="Usage")
+    fig.tight_layout()
+    fig.savefig(output_pdf_path)
+    plt.close(fig)
+    print(f"Ablated usage matrix plot written to {output_pdf_path}")
+
+
+def plot_coexpression_distribution(gene, coexp_row, output_pdf_path):
+    values = coexp_row.drop(labels=[gene], errors="ignore")
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.hist(values, bins=50, color="steelblue", edgecolor="black", linewidth=0.3)
+    for threshold in (0.5, 0.75, 0.9):
+        ax.axvline(threshold, color="red", linestyle="--", linewidth=1)
+    ax.set_xlabel(f"Co-expression with {gene}")
+    ax.set_ylabel("Number of genes")
+    ax.set_title(f"Co-expression distribution for {gene}")
+    fig.tight_layout()
+    fig.savefig(output_pdf_path)
+    plt.close(fig)
+    print(f"Co-expression distribution plot written to {output_pdf_path}")
+
+
+def plot_top_partner_scatter(gene, coexp_row, adata, ntop, output_pdf_path):
+    ranked = coexp_row.drop(labels=[gene], errors="ignore").abs().sort_values(ascending=False)
+    partners = ranked.head(ntop).index.tolist()
+    expr = get_expression_df(adata, [gene] + partners)
+
+    fig, axes = plt.subplots(1, len(partners), figsize=(4 * len(partners), 4), squeeze=False)
+    for ax, partner in zip(axes[0], partners):
+        ax.scatter(expr[gene], expr[partner], s=5, alpha=0.4, edgecolor="none")
+        ax.set_xlabel(f"{gene} (log1p)")
+        ax.set_ylabel(f"{partner} (log1p)")
+        ax.set_title(f"r = {coexp_row[partner]:.2f}")
+    fig.tight_layout()
+    fig.savefig(output_pdf_path)
+    plt.close(fig)
+    print(f"Top co-expressed partner scatter plots written to {output_pdf_path}")
+
+
+def run_gene_diagnostics(gene, geps, spectra_tpm, coexp_df, hvgs, gene_std, norm_tpm_hvg,
+                          baseline_usages, adata, absolute, output_prefix):
+    if gene not in coexp_df.index:
+        raise ValueError(f"Requested gene '{gene}' not found in coexpression matrix")
+
+    coexp_row = coexp_df.loc[gene]
+
+    ablated_usages = {}
+    for gep in tqdm(geps, desc=f"Ablating {gene}"):
+        spectra_row = spectra_tpm.loc[gep]
+        ablated_usage, _ = ablate_gene(spectra_row, coexp_row, hvgs, gene_std, norm_tpm_hvg, absolute)
+        ablated_usages[gep] = ablated_usage
+    ablated_usage_df = pd.DataFrame(ablated_usages, index=adata.obs_names)
+
+    matrix_tsv_path = f"{output_prefix}.{gene}.ablated_usage_matrix.tsv"
+    ablated_usage_df.to_csv(matrix_tsv_path, sep="\t")
+    print(f"Ablated usage matrix written to {matrix_tsv_path}")
+
+    plot_true_vs_ablated_scatter(
+        gene, ablated_usage_df, baseline_usages, f"{output_prefix}.{gene}.true_vs_ablated_scatter.pdf"
+    )
+    plot_ablated_usage_matrix(
+        gene, ablated_usage_df, f"{output_prefix}.{gene}.ablated_usage_matrix.pdf"
+    )
+    plot_coexpression_distribution(
+        gene, coexp_row, f"{output_prefix}.{gene}.coexpression_distribution.pdf"
+    )
+    plot_top_partner_scatter(
+        gene, coexp_row, adata, 5, f"{output_prefix}.{gene}.top5_coexpressed_partners.pdf"
+    )
+
+
 def plot_r2_by_rank(results_df, output_pdf_path):
     with PdfPages(output_pdf_path) as pdf:
         for program, df_program in results_df.groupby("gep"):
@@ -279,6 +387,14 @@ def run_pipeline(args):
 
     plot_r2_by_rank(results_df, f"{args.output}.r2_by_rank.pdf")
 
+    if args.gene:
+        gene_geps = args.geps if args.geps else spectra_tpm.index.tolist()
+        print(f"Running detailed ablation diagnostics for gene '{args.gene}' across {len(gene_geps)} GEP(s)")
+        run_gene_diagnostics(
+            args.gene, gene_geps, spectra_tpm, coexp_df, hvgs, gene_std, norm_tpm_hvg,
+            baseline_usages, adata, args.coexp_absolute, args.output
+        )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -294,6 +410,10 @@ if __name__ == "__main__":
                          help="Optional spectra scores (SD units) used for ranking genes; defaults to --spectra")
     parser.add_argument("--geps", nargs="+", default=None,
                          help="Optional subset of GEP/program names (spectra row labels) to run ablation for; defaults to all")
+    parser.add_argument("--gene", default=None,
+                         help="Optional single gene to produce detailed ablation diagnostics for "
+                              "(true vs. ablated usage scatter, ablated usage matrix, co-expression "
+                              "distribution, top-5 co-expressed partner scatter). Interacts with --geps.")
     parser.add_argument("--output", required=True, help="Output prefix")
     parser.add_argument("--coexp-absolute", action="store_true",
                          help="Use absolute co-expression values instead of ignoring values < 0")
