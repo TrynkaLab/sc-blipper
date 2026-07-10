@@ -70,6 +70,32 @@ def compute_baseline_usage(adata, hvgs, spectra_tpm, gene_std, nmf_params_path):
 
     return baseline_usages, norm_tpm_hvg, spectra_tpm_rf
 
+#def compute_baseline_usage_dot(adata, norm_tpm_hvg, spectra_tpm_rf):
+def compute_baseline_usage_dot(adata, hvgs, spectra_tpm, gene_std, nmf_params_path):
+
+    """
+    Baseline usage as the raw dot product of each cell's normalized profile
+    with each program's (unablated) reweighted spectra, i.e. the same
+    operation used by ablate_gene, with weights = 1. Unlike compute_baseline_usage,
+    this does not jointly refit against all programs and has no non-negativity
+    constraint, so it is the fair comparison point for ablate_gene's dot-product usage.
+    """
+    
+    norm_tpm = adata[:, hvgs].copy()
+    if sp.issparse(norm_tpm.X):
+        sc.pp.scale(norm_tpm, zero_center=False)
+        norm_tpm_hvg = np.asarray(norm_tpm.X.todense())
+    else:
+        norm_tpm.X = norm_tpm.X / norm_tpm.X.std(axis=0, ddof=1)
+        norm_tpm_hvg = np.asarray(norm_tpm.X)
+    
+    spectra_tpm_rf = spectra_tpm.loc[:, hvgs].div(gene_std.loc[hvgs], axis=1)
+
+    dot_usages = norm_tpm_hvg.dot(spectra_tpm_rf.values.T)
+    baseline_usages = pd.DataFrame(dot_usages, index=adata.obs_names, columns=spectra_tpm_rf.index)
+
+    return baseline_usages, norm_tpm_hvg, spectra_tpm_rf
+
 
 def compute_coexpression(adata, genes):
     sub = adata[:, genes].copy()
@@ -231,10 +257,7 @@ def plot_true_vs_ablated_scatter(gene, ablated_usage_df, baseline_usages, output
             true_usage = baseline_usages[gep].values
             ablated_usage = ablated_usage_df[gep].values
             fig, ax = plt.subplots(figsize=(5, 5))
-            ax.scatter(true_usage, ablated_usage, s=5, alpha=0.4, edgecolor="none")
-            lo = min(true_usage.min(), ablated_usage.min())
-            hi = max(true_usage.max(), ablated_usage.max())
-            ax.plot([lo, hi], [lo, hi], "k--", linewidth=1)
+            ax.scatter(true_usage, ablated_usage, s=5, alpha=0.4, edgecolor="none", rasterized=True)
             ax.set_xlabel("True GEP usage")
             ax.set_ylabel(f"Ablated GEP usage ({gene} removed)")
             ax.set_title(gep)
@@ -242,6 +265,10 @@ def plot_true_vs_ablated_scatter(gene, ablated_usage_df, baseline_usages, output
             pdf.savefig(fig)
             plt.close(fig)
     print(f"True vs ablated usage scatter plots written to {output_pdf_path}")
+    
+            #lo = min(true_usage.min(), ablated_usage.min())
+            #hi = max(true_usage.max(), ablated_usage.max())
+            #ax.plot([lo, hi], [lo, hi], "k--", linewidth=1)
 
 
 def plot_ablated_usage_matrix(gene, ablated_usage_df, output_pdf_path):
@@ -257,7 +284,7 @@ def plot_ablated_usage_matrix(gene, ablated_usage_df, output_pdf_path):
     ax.set_title(f"Ablated GEP usage ({gene} removed)")
     fig.colorbar(im, ax=ax, label="Usage")
     fig.tight_layout()
-    fig.savefig(output_pdf_path)
+    fig.savefig(output_pdf_path, dpi=300)
     plt.close(fig)
     print(f"Ablated usage matrix plot written to {output_pdf_path}")
 
@@ -284,12 +311,12 @@ def plot_top_partner_scatter(gene, coexp_row, adata, ntop, output_pdf_path):
 
     fig, axes = plt.subplots(1, len(partners), figsize=(4 * len(partners), 4), squeeze=False)
     for ax, partner in zip(axes[0], partners):
-        ax.scatter(expr[gene], expr[partner], s=5, alpha=0.4, edgecolor="none")
+        ax.scatter(expr[gene], expr[partner], s=5, alpha=0.4, edgecolor="none", rasterized=True)
         ax.set_xlabel(f"{gene} (log1p)")
         ax.set_ylabel(f"{partner} (log1p)")
         ax.set_title(f"r = {coexp_row[partner]:.2f}")
     fig.tight_layout()
-    fig.savefig(output_pdf_path)
+    fig.savefig(output_pdf_path, dpi=300)
     plt.close(fig)
     print(f"Top co-expressed partner scatter plots written to {output_pdf_path}")
 
@@ -314,9 +341,6 @@ def run_gene_diagnostics(gene, geps, spectra_tpm, coexp_df, hvgs, gene_std, norm
 
     plot_true_vs_ablated_scatter(
         gene, ablated_usage_df, baseline_usages, f"{output_prefix}.{gene}.true_vs_ablated_scatter.pdf"
-    )
-    plot_ablated_usage_matrix(
-        gene, ablated_usage_df, f"{output_prefix}.{gene}.ablated_usage_matrix.pdf"
     )
     plot_coexpression_distribution(
         gene, coexp_row, f"{output_prefix}.{gene}.coexpression_distribution.pdf"
@@ -359,7 +383,7 @@ def run_pipeline(args):
 
     print("Computing baseline program usage")
     gene_std = compute_gene_std(adata, hvgs)
-    baseline_usages, norm_tpm_hvg, spectra_tpm_rf = compute_baseline_usage(
+    baseline_usages, norm_tpm_hvg, spectra_tpm_rf = compute_baseline_usage_dot(
         adata, hvgs, spectra_tpm, gene_std, args.nmf_params
     )
 
@@ -376,16 +400,17 @@ def run_pipeline(args):
 
 
     print(f"Running per-gene ablation for {ngeps} programs (ntop={args.ntop})")
-    results_df = run_ablations(
-        spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
-        spectra_tpm_rf, baseline_usages, args.ntop, args.coexp_absolute, args.geps
-    )
+    if not args.gene:
+        results_df = run_ablations(
+            spectra_tpm, score_df, coexp_df, hvgs, gene_std, norm_tpm_hvg,
+            spectra_tpm_rf, baseline_usages, args.ntop, args.coexp_absolute, args.geps
+        )
 
-    tsv_path = f"{args.output}.ablation_results.tsv"
-    results_df.to_csv(tsv_path, sep="\t", index=False)
-    print(f"Ablation results written to {tsv_path}")
+        tsv_path = f"{args.output}.ablation_results.tsv"
+        results_df.to_csv(tsv_path, sep="\t", index=False)
+        print(f"Ablation results written to {tsv_path}")
 
-    plot_r2_by_rank(results_df, f"{args.output}.r2_by_rank.pdf")
+        plot_r2_by_rank(results_df, f"{args.output}.r2_by_rank.pdf")
 
     if args.gene:
         gene_geps = args.geps if args.geps else spectra_tpm.index.tolist()
