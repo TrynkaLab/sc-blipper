@@ -34,7 +34,7 @@ process invert_id_link {
     script:
     """
     outfile="\$(basename ${id_linker} | sed 's/.tsv//g')"
-    awk '{print \$2"\t"\$1"}' ${id_linker} > \${outfile}_inverted.tsv
+    awk '{print \$2"\t"\$1}' ${id_linker} > \${outfile}_inverted.tsv
     """
 }
 
