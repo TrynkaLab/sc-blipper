@@ -15,6 +15,11 @@
 - Added additional markers
 - Added mitocarta v3 genesets to assets
 
+### Bugfixes
+- Fixed minor bug with predefined ensembl reference files
+- Fixed bug introduced by re-working of magma preperation in cnmf workflow
+- Fixed incorrect quotes in invert_id_link causing crash
+
 ### Configuration
 - Added option enrich.progeny_file
 - Added option enrich.collectri_file
