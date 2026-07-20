@@ -11,11 +11,16 @@
 - Added additional marker genes to CD4 assets list
 - Added config gpu_medium_long
 - Code refactoring
+- Updates to summary script, now produces extra table with ranks
+- Added additional markers
+- Added mitocarta v3 genesets to assets
 
 ### Configuration
 - Added option enrich.progeny_file
 - Added option enrich.collectri_file
 - Added configuration block for LDSC
+- Removed default 500 gene ORA test, as the true informative geneset is probably <= 250 
+- Increased default top genes in summary table form 10 to 20
 
 ### Documentation
 - Added workflow page for ldsc
