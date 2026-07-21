@@ -120,7 +120,7 @@ plot_simple_hm <- function(data, cellsize = -1, cellwidth = 12, cellheight = 12,
 }
 
 # Creates a profile plot for a given GEP
-plot.top.k.genesets <- function(spectra, gep, k=20, cyto=NULL, tfs=NULL) {
+plot.top.k.genesets <- function(spectra, gep, k=20, cyto=NULL, tfs=NULL, scale="mad") {
   
   cur <- spectra[,gep]
   
@@ -131,7 +131,18 @@ plot.top.k.genesets <- function(spectra, gep, k=20, cyto=NULL, tfs=NULL) {
   # Top k genes
   cur <- sort(cur, decreasing = T)
   genes <- names(cur)
-  cur <- scale(cur)
+  
+  if (scale == "mad") {
+    cur <- (cur - median(cur)) / mad(cur)
+  } else if (scale == "z") {
+    cur <- (cur - mean(cur)) / sd(cur)
+  } else if (scale == "minmax") {
+    cur <- (cur - min(cur)) / (max(cur) - min(cur))
+  } else if (scale == "none") {
+    # Do nothing
+  } else {
+    stop("Invalid scale option. Choose from 'mad', 'z', 'minmax', or 'none'.")
+  }
   
   
   p0 <- ggplot(data.frame(y=cur), aes(x=y, fill = after_stat(x))) +
@@ -286,6 +297,8 @@ tf.file <- opt$tfFile
 cyto.file <- opt$cytoFile
 qc.file <- opt$qc
 
+scale.method <- "mad"
+
 if (is.null(spectra.file)) {
   stop("You must provide a spectra file with -S / --spectra")
 }
@@ -328,7 +341,7 @@ if (!is.null(cyto.file)) {
 
 pdf(width=6, height=(nrows*1.5), file=paste0(output.prefix, "_gep_profiles.pdf"))
 for (gep in 1:ncol(spectra)) {
-  p <- plot.top.k.genesets(spectra, gep, cyto=cyto, tfs=tfs)
+  p <- plot.top.k.genesets(spectra, gep, cyto=cyto, tfs=tfs, scale=scale.method)
   plot(p)
 }
 dev.off()
@@ -346,8 +359,7 @@ if (!is.null(qc.file)) {
 if (!is.null(enrichment.file)) {
   enrich       <- read(enrichment.file, rn=F)
   cat("[INFO] read erichment\n")
-  print(head(enrich))
-
+  
   if (is.null(tests)) {
     tests <- unique(enrich$test)
   }
@@ -410,26 +422,84 @@ if (!is.null(annot.file)) {
   annot           <- read(annot.file)
     
   ol              <- intersect(rownames(spectra), rownames(annot))
-  m               <- spectra[ol,]
+  
+  if (scale.spectra) {
+    
+    scale.method="mad"
+    if (scale.method=="z") {
+      spectra.scaled <- scale(spectra)
+    } else if (scale.method=="mad") {
+      spectra.scaled <- apply(spectra, 2, function(x){(x-median(x))/mad(x)})
+    } else if (scale.method=="minmax") {
+      spectra.scaled <- apply(spectra, 2, function(x){(x-min(x))/(max(x)-min(x))})
+    } else if (scale.method == "none") {
+      # Do nothing
+    } else {
+      stop("Invalid scale method. Choose from 'z', 'mad', 'none' or 'minmax'.")
+    }
+    
+    rownames(spectra.scaled) <- rownames(spectra)
+    colnames(spectra.scaled) <- colnames(spectra)
+  
+    m               <- spectra.scaled[ol,]    
+  } else {
+    m               <- spectra[ol,]
+  }
+  
+  
+  #spectra.ranked <- apply(spectra, 2, function(x){rank(x, ties.method="average")})
+  #spectra.ranked <- (max(spectra.ranked)+1) - spectra.ranked
+  
+  get_rank <- function(x, dist) {
+    sum(dist >= x)
+  }
+  
+  # Average the scores first, then find the rank of the average score.
+  # This is more robust than ranking each gene and then averaging the ranks, as strong rank outliers pull down the average rank
+  m2.ranked              <- aggregate(spectra[ol,], by=list(group=annot[ol,1]), FUN=mean)
+  
+  rownames(m2.ranked)    <- m2.ranked[,1]
+  m2.ranked <- m2.ranked[,-1]
+  
+  for (i in 1:nrow(m2.ranked)) {
+    for (j in 1:ncol(m2.ranked)) {
+      m2.ranked[i,j] <- get_rank(m2.ranked[i,j], dist=spectra[,j])
+    }
+  }
+  m2.ranked              <- t(m2.ranked)
+  
+  # Determine mean spectra score
   m2              <- aggregate(m, by=list(group=annot[ol,1]), FUN=mean)
+  orig.grp        <- m2[,1]
   rownames(m2)    <- m2[,1]
   m2              <- t(m2[,-1])
+  
+  
   if (log.spectra) {
     m2 <- log2(m2+1)
   }
-  if (scale.spectra) {
-    m2 <- scale(m2)
-    m2[is.na(m2)] <- 0
-  }
+
+  m2 <- na.omit(m2)
+  m2.ranked <- m2.ranked[rownames(m2),colnames(m2)]
+  
   
   # Cluster 
   d <- dist(t(m2))       # transpose to cluster columns
   hc <- hclust(d)   
   
   
-  top.mat <- cbind(top.mat, m2[rownames(top.mat), hc$order])
+  orig.tm <- colnames(top.mat)
+
+  tm.orig <- top.mat
+
+  top.mat <- cbind(tm.orig, m2[rownames(tm.orig), hc$order])
+  top.mat.ranked <- cbind(tm.orig, m2.ranked[rownames(tm.orig), hc$order])
+  orig.names <- c(orig.tm, orig.grp[hc$order])  
   
-  pdf(width=2+(nrow(m2)*0.5), height=2+(ncol(m2)*0.5), file=paste0(output.prefix, "_marker_heatmap.pdf"))
+  print(dim(m2))
+  print(dim(m2.ranked))
+  
+  pdf(width=2+(nrow(m2)*1), height=2+(ncol(m2)*0.25), file=paste0(output.prefix, "_marker_heatmap.pdf"))
   plot(plot_simple_hm(m2))
   dev.off()
 }
@@ -437,8 +507,18 @@ if (!is.null(annot.file)) {
 #-------------------------------------------------------------------------------
 # Output
 top.mat <- data.frame(rownames=rownames(top.mat), gep=paste0("GEP",rownames(top.mat)), top.mat)
+colnames(top.mat) <- c("rownames", "gep", orig.names)
 write.table(top.mat,
             file=paste0(output.prefix, "_summary.tsv"),
+            quote=F,
+            sep="\t",
+            row.names=F)
+
+  
+top.mat.ranked <- data.frame(rownames=rownames(top.mat.ranked), gep=paste0("GEP",rownames(top.mat.ranked)), top.mat.ranked)
+colnames(top.mat.ranked) <- c("rownames", "gep", orig.names)
+write.table(top.mat.ranked,
+            file=paste0(output.prefix, "_summary_ranks.tsv"),
             quote=F,
             sep="\t",
             row.names=F)

@@ -3,7 +3,7 @@
 // Processes
 include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc; cnmf_qc_summary } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler; fetch_omnipath } from "../processes/enrichment.nf"
-include { magma_assoc } from "../processes/magma.nf"
+include { magma_assoc; prepare_magma_matrix } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
 include { magma_concat as magma_concat_per_k } from "../processes/magma.nf"
 include { concat_enrichment_results as concat_enrichment_results_main } from "../processes/enrichment.nf"
@@ -244,11 +244,17 @@ workflow cnmf {
                     magma_cnmf_in = cnmf_out.spectra_score.map{i -> tuple("k_"+i[0], i[1])}
                 }
                 
-                magma_assoc_in = magma_base.out.raw.combine(magma_cnmf_in)
-                
+                // Seperate prepare step now to avoid redunant processing with large files
+                prepared_matrix = prepare_magma_matrix(magma_cnmf_in, true, universe, file("NO_MAPPING"))
+                magma_assoc_in = magma_base.out.raw.combine(prepared_matrix)
+
                 // Run regression based magma
-                magma_assoc_out = magma_assoc(magma_assoc_in, true, universe, file("NO_MAPPING"))
-                    
+                magma_assoc_out = magma_assoc(magma_assoc_in)
+                
+                // Old way where matrix was prepared inside magma_assoc
+                //magma_assoc_in = magma_base.out.raw.combine(magma_cnmf_in)
+                //magma_assoc_out = magma_assoc(magma_assoc_in, true, universe, file("NO_MAPPING"))
+  
                 // Concat the results in a single table
                 concat_in = magma_assoc_out.out.collect().map{ list -> ["${params.rn_runname}", list]}
                 magma_out = magma_concat_main("cnmf/consensus/", concat_in)
