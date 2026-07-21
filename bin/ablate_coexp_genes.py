@@ -231,7 +231,7 @@ def plot_true_vs_ablated_scatter(gene, ablated_usage_df, baseline_usages, output
             true_usage = baseline_usages[gep].values
             ablated_usage = ablated_usage_df[gep].values
             fig, ax = plt.subplots(figsize=(5, 5))
-            ax.scatter(true_usage, ablated_usage, s=5, alpha=0.4, edgecolor="none")
+            ax.scatter(true_usage, ablated_usage, s=5, alpha=0.4, edgecolor="none", rasterized=True)
             lo = min(true_usage.min(), ablated_usage.min())
             hi = max(true_usage.max(), ablated_usage.max())
             ax.plot([lo, hi], [lo, hi], "k--", linewidth=1)
@@ -239,7 +239,7 @@ def plot_true_vs_ablated_scatter(gene, ablated_usage_df, baseline_usages, output
             ax.set_ylabel(f"Ablated GEP usage ({gene} removed)")
             ax.set_title(gep)
             fig.tight_layout()
-            pdf.savefig(fig)
+            pdf.savefig(fig, dpi=300)
             plt.close(fig)
     print(f"True vs ablated usage scatter plots written to {output_pdf_path}")
 
@@ -284,12 +284,12 @@ def plot_top_partner_scatter(gene, coexp_row, adata, ntop, output_pdf_path):
 
     fig, axes = plt.subplots(1, len(partners), figsize=(4 * len(partners), 4), squeeze=False)
     for ax, partner in zip(axes[0], partners):
-        ax.scatter(expr[gene], expr[partner], s=5, alpha=0.4, edgecolor="none")
+        ax.scatter(expr[gene], expr[partner], s=5, alpha=0.4, edgecolor="none", rasterized=True)
         ax.set_xlabel(f"{gene} (log1p)")
         ax.set_ylabel(f"{partner} (log1p)")
         ax.set_title(f"r = {coexp_row[partner]:.2f}")
     fig.tight_layout()
-    fig.savefig(output_pdf_path)
+    fig.savefig(output_pdf_path, dpi=300)
     plt.close(fig)
     print(f"Top co-expressed partner scatter plots written to {output_pdf_path}")
 
