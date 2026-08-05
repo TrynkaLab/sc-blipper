@@ -4,7 +4,7 @@
 // queue while using the GPU-capable environment and cNMF's GPU-aware prepare
 // adapter, which persists the requested solver for later GPU stages.
 process cnmf_prepare_gpu {
-    label "${params.cnmf_gpu?.prepare?.label ?: params.cnmf.label}"
+    label params.cnmf.label
     scratch params.rn_scratch
 
     container "${params.cnmf_gpu?.prepare?.container ?: params.cnmf_gpu?.container ?: params.rn_container}"
