@@ -1,5 +1,63 @@
 #!/usr/bin/env nextflow
 
+// Prepare itself does not use a GPU. This variant runs on the ordinary cNMF
+// queue while using the GPU-capable environment and cNMF's GPU-aware prepare
+// adapter, which persists the requested solver for later GPU stages.
+process cnmf_prepare_gpu {
+    label "${params.cnmf_gpu?.prepare?.label ?: params.cnmf.label}"
+    scratch params.rn_scratch
+
+    container "${params.cnmf_gpu?.prepare?.container ?: params.cnmf_gpu?.container ?: params.rn_container}"
+    conda "${params.cnmf_gpu?.prepare?.conda ?: params.cnmf_gpu?.conda ?: projectDir + '/environment_gpu.yml'}"
+
+    input:
+        tuple val(id), path(file)
+        path(tpm)
+        path(hvg)
+    output:
+        tuple val(id), path("${id}")
+
+    script:
+        def seed = Math.round(Math.random() * 10000).toInteger()
+        cmd =
+        """
+        cnmf prepare \
+        --output-dir ./ \
+        --name ${id} \
+        -c ${file} \
+        -k ${params.cnmf.k.split(",").join(' ')} \
+        --n-iter ${params.cnmf.n_iter} \
+        --numgenes ${params.preprocess.n_variable}\
+        """
+
+        if (params.cnmf.seed != null) {
+            cmd += " --seed ${params.cnmf.seed}"
+        } else {
+            cmd += " --seed ${seed}"
+        }
+
+        if (tpm.getFileName().toString() != "NO_TPM") {
+            cmd += " --tpm ${tpm}"
+        }
+
+        if (hvg.getFileName().toString() != "NO_HVG") {
+            cmd += " --genes-file ${hvg}"
+        }
+
+        def prepare = params.cnmf_gpu?.prepare ?: [:]
+        if (prepare.solver != null) {
+            cmd += " --solver ${prepare.solver}"
+        }
+
+        if (prepare.beta_loss != null) {
+            cmd += " --beta-loss ${prepare.beta_loss}"
+        }
+
+        cmd += " --engine gpu"
+
+        cmd
+}
+
 process cnmf_factorize_gpu {
     label "${params.cnmf_gpu?.label ?: 'gpu_medium'}"
     scratch params.rn_scratch
