@@ -70,7 +70,7 @@ GROUP="teamtrynka"
 PROFILE="lsf"
  
 # Path to nextflow file, MUST BE ABSOLUTE
-NF_FILE=/software/teamtrynka/installs/sc-blipper-dev/main.nf
+NF_FILE=/software/teamtrynka/installs/sc-blipper-dev-gpu/main.nf
 
 # Make sure nextflow is avaialable
 module load HGI/common/nextflow/25.04.6
