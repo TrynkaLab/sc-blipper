@@ -24,6 +24,8 @@ dependencies:
   - bioconductor-biomart
   - bioconductor-fgsea>=1.32
   - pip:
+    - --extra-index-url https://download.pytorch.org/whl/cu126
+    - torch==2.6.0+cu126
     - h5py
     - "cnmf[gpu] @ git+https://github.com/TrynkaLab/cNMF.git"
     - pandas
