@@ -18,6 +18,7 @@ process cnmf_prepare_gpu {
         tuple val(id), path("${id}")
 
     script:
+        def gpu_args = CnmfGpuConfigurer.process(params.cnmf_gpu)
         def seed = Math.round(Math.random() * 10000).toInteger()
         cmd =
         """
@@ -43,17 +44,8 @@ process cnmf_prepare_gpu {
         if (hvg.getFileName().toString() != "NO_HVG") {
             cmd += " --genes-file ${hvg}"
         }
-
-        def prepare = params.cnmf_gpu?.prepare ?: [:]
-        if (prepare.solver != null) {
-            cmd += " --solver ${prepare.solver}"
-        }
-
-        if (prepare.beta_loss != null) {
-            cmd += " --beta-loss ${prepare.beta_loss}"
-        }
-
-        cmd += " --engine gpu"
+        
+        cmd += " --engine gpu ${gpu_args.prepare}"
 
         cmd
 }
@@ -73,30 +65,7 @@ process cnmf_factorize_gpu {
         path("${id}/cnmf_tmp/*.k_*.iter_*.df.npz", emit: files)
 
     script:
-        // Process-specific GPU options override shared GPU options; unset values are left to cNMF.
-        def gpu = params.cnmf_gpu ?: [:]
-        def gpu_factorize = gpu.factorize ?: [:]
-        def gpu_device = gpu_factorize.device != null ? gpu_factorize.device : gpu.device
-        def gpu_dtype = gpu_factorize.dtype != null ? gpu_factorize.dtype : gpu.dtype
-        def gpu_compile_block = gpu_factorize.compile_block != null ? gpu_factorize.compile_block : gpu.compile_block
-        def gpu_allow_tf32 = gpu_factorize.allow_tf32 != null ? gpu_factorize.allow_tf32 : gpu.allow_tf32
-        def gpu_compile = gpu_factorize.compile != null ? gpu_factorize.compile : gpu.compile
-        def gpu_eps = gpu_factorize.eps != null ? gpu_factorize.eps : gpu.eps
-        def gpu_check_every = gpu_factorize.check_every != null ? gpu_factorize.check_every : gpu.check_every
-        def gpu_batch = gpu_factorize.batch != null ? gpu_factorize.batch : gpu.batch
-
-        // Only emit explicit GPU flags so cNMF remains the source of runtime defaults.
-        def gpu_device_arg = gpu_device != null ? "--gpu-device ${gpu_device}" : ""
-        def gpu_dtype_arg = gpu_dtype != null ? "--gpu-dtype ${gpu_dtype}" : ""
-        def gpu_compile_block_arg = gpu_compile_block != null ? "--gpu-compile-block ${gpu_compile_block}" : ""
-        def gpu_allow_tf32_arg = gpu_allow_tf32 != null && gpu_allow_tf32.toString().trim().toLowerCase() in ["1", "true", "yes", "on"] ? "--gpu-allow-tf32" : ""
-        def gpu_compile_arg = gpu_compile != null && gpu_compile.toString().trim().toLowerCase() in ["1", "true", "yes", "on"] ? "--gpu-compile" : ""
-        def gpu_eps_arg = gpu_eps != null ? "--gpu-eps ${gpu_eps}" : ""
-        def gpu_check_every_arg = gpu_check_every != null ? "--gpu-check-every ${gpu_check_every}" : ""
-        def gpu_batch_arg = gpu_batch != null ? "--gpu-batch ${gpu_batch}" : ""      // factorize-only: replicates per GPU launch
-        // Join only the flags that are set onto ONE line, so an unset/false optional flag can't leave a
-        // blank line that breaks the shell line-continuation (previously: `--gpu-allow-tf32: command not found`).
-        def gpu_extra_args = [gpu_device_arg, gpu_dtype_arg, gpu_compile_block_arg, gpu_allow_tf32_arg, gpu_compile_arg, gpu_eps_arg, gpu_check_every_arg, gpu_batch_arg].findAll { it }.join(' ')
+        def gpu_args = CnmfGpuConfigurer.process(params.cnmf_gpu)
 
         cmd =
         """
@@ -110,8 +79,7 @@ process cnmf_factorize_gpu {
         --name ${id} \
         --worker-index ${worker_index} \
         --total-workers ${n_workers} \
-        --engine gpu \
-        ${gpu_extra_args}
+        --engine gpu ${gpu_args.factorize}
         """
 
         cmd
@@ -145,28 +113,7 @@ process cnmf_consensus_gpu {
     script:
 
         String local_dens = params.cnmf.local_density.toString().replace('.', '_')
-        // Consensus can use different GPU options from factorize; unset values fall through to cNMF.
-        def gpu = params.cnmf_gpu ?: [:]
-        def gpu_consensus = gpu.consensus ?: [:]
-        def gpu_device = gpu_consensus.device != null ? gpu_consensus.device : gpu.device
-        def gpu_dtype = gpu_consensus.dtype != null ? gpu_consensus.dtype : gpu.dtype
-        def gpu_compile_block = gpu_consensus.compile_block != null ? gpu_consensus.compile_block : gpu.compile_block
-        def gpu_allow_tf32 = gpu_consensus.allow_tf32 != null ? gpu_consensus.allow_tf32 : gpu.allow_tf32
-        def gpu_compile = gpu_consensus.compile != null ? gpu_consensus.compile : gpu.compile
-        def gpu_eps = gpu_consensus.eps != null ? gpu_consensus.eps : gpu.eps
-        def gpu_check_every = gpu_consensus.check_every != null ? gpu_consensus.check_every : gpu.check_every
-
-        // Only emit explicit GPU flags so cNMF remains the source of runtime defaults.
-        def gpu_device_arg = gpu_device != null ? "--gpu-device ${gpu_device}" : ""
-        def gpu_dtype_arg = gpu_dtype != null ? "--gpu-dtype ${gpu_dtype}" : ""
-        def gpu_compile_block_arg = gpu_compile_block != null ? "--gpu-compile-block ${gpu_compile_block}" : ""
-        def gpu_allow_tf32_arg = gpu_allow_tf32 != null && gpu_allow_tf32.toString().trim().toLowerCase() in ["1", "true", "yes", "on"] ? "--gpu-allow-tf32" : ""
-        def gpu_compile_arg = gpu_compile != null && gpu_compile.toString().trim().toLowerCase() in ["1", "true", "yes", "on"] ? "--gpu-compile" : ""
-        def gpu_eps_arg = gpu_eps != null ? "--gpu-eps ${gpu_eps}" : ""
-        def gpu_check_every_arg = gpu_check_every != null ? "--gpu-check-every ${gpu_check_every}" : ""
-        // Join only the flags that are set onto ONE line, so an unset/false optional flag can't leave a
-        // blank line that breaks the shell line-continuation (previously: `--gpu-allow-tf32: command not found`).
-        def gpu_extra_args = [gpu_device_arg, gpu_dtype_arg, gpu_compile_block_arg, gpu_allow_tf32_arg, gpu_compile_arg, gpu_eps_arg, gpu_check_every_arg].findAll { it }.join(' ')
+        def gpu_args = CnmfGpuConfigurer.process(params.cnmf_gpu)
 
         cmd =
         """
@@ -182,8 +129,7 @@ process cnmf_consensus_gpu {
         --components ${k} \
         --local-density-threshold ${params.cnmf.local_density} \
         --show-clustering \
-        --engine gpu \
-        ${gpu_extra_args}
+        --engine gpu ${gpu_args.consensus}
 
         find ${id} -maxdepth 1 -type f -name "*.txt" ! -xtype l -exec gzip {} \\;
         """
