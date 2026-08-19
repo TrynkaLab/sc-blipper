@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc; cnmf_qc_summary } from "../processes/cnmf.nf"
+include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc_summary } from "../processes/cnmf.nf"
 include { cnmf_prepare_gpu; cnmf_factorize_gpu; cnmf_consensus_gpu } from "../processes/cnmf_gpu.nf"
 include { gsea; ora; decoupler; fetch_omnipath } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
@@ -105,11 +105,9 @@ workflow cnmf {
         }
         // This is the end of the cnmf processing
         
-        // Calculate QC metrics
-        qc_out = cnmf_qc(params.rn_runname, cnmf_out.qc_input)
         
         // Summarize QC metrics
-        qc_summary_out = cnmf_qc_summary(params.rn_runname, qc_out.qc_metrics.map{row -> row[1]}.toSortedList())
+        qc_summary_out = cnmf_qc_summary(params.rn_runname, cnmf_out.qc_metrics.map{row -> row[1]}.toSortedList())
     
         // TODO: Wrap the below in : if(params.cnmf.k.split(",").size() >= 2)
         // This is to enable running with a single k value
@@ -322,7 +320,7 @@ workflow cnmf {
         }
         
         // Add the QC file
-        summarize_in = summarize_in.combine(qc_out.qc_metrics.map{row -> tuple("k_${row[0]}", row[1])}, by: 0)
+        summarize_in = summarize_in.combine(cnmf_out.qc_metrics.map{row -> tuple("k_${row[0]}", row[1])}, by: 0)
 
         // Compact selection of marker / tf / cyto files
         def chooseFile = { paramVal, defaultPath, noTag ->
