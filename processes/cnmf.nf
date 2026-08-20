@@ -40,11 +40,13 @@ process cnmf_pre_process {
 }
 
 process cnmf_prepare {
-    label params.cnmf.label
-    scratch params.rn_scratch
-    
-    container params.rn_container
-    conda params.rn_conda
+    label Configurer.process(params).cnmf.prepare.label
+    scratch Configurer.process(params).cnmf.prepare.scratch
+
+    // Prepare does not request a GPU, but GPU-enabled runs need the cNMF GPU
+    // package so the selected solver and loss can be persisted for later stages.
+    container Configurer.process(params).cnmf.prepare.container
+    conda Configurer.process(params).cnmf.prepare.conda
 
     // This doesn't really need to be published
     //publishDir "$params.rn_publish_dir/cnmf/prepare/", mode: 'symlink'
@@ -57,7 +59,7 @@ process cnmf_prepare {
         tuple val(id), path("${id}")
         
     script:
-    
+        def config = Configurer.process(params).cnmf
         def seed =  Math.round( Math.random() * 10000 ).toInteger()
         cmd = 
         """
@@ -65,13 +67,13 @@ process cnmf_prepare {
         --output-dir ./ \
         --name $id \
         -c $file \
-        -k ${params.cnmf.k.split(",").join(' ')} \
-        --n-iter ${params.cnmf.n_iter} \
-        --numgenes ${params.preprocess.n_variable}\
+        -k ${config.common.k.join(' ')} \
+        --n-iter ${config.common.n_iter} \
+        --numgenes ${config.preprocess.n_variable}\
         """
         
-        if (params.cnmf.seed != null) {
-            cmd += " --seed ${params.cnmf.seed}"
+        if (config.common.seed != null) {
+            cmd += " --seed ${config.common.seed}"
         } else {
             cmd += " --seed ${seed}"
         }
@@ -84,17 +86,21 @@ process cnmf_prepare {
         // Add the variable genes, if providing TPM this must also be provided
         if (hvg.getFileName().toString() != "NO_HVG") {
             cmd += " --genes-file $hvg"
-        } 
+        }
+
+        if (config.prepare.args) {
+            cmd += " ${config.prepare.args}"
+        }
+
         cmd
-    
 }
 
 process cnmf_factorize {
-    label params.cnmf.label
-    scratch params.rn_scratch
-    
-    container params.rn_container
-    conda params.rn_conda
+    label Configurer.process(params).cnmf.factorize.label
+    scratch Configurer.process(params).cnmf.factorize.scratch
+
+    container Configurer.process(params).cnmf.factorize.container
+    conda Configurer.process(params).cnmf.factorize.conda
     // I dont think this needs to be publised long term, but for now its handy for debugging
     //publishDir "$params.rn_publish_dir/cnmf/${id}/factorize", mode: 'symlink'
     
@@ -106,6 +112,7 @@ process cnmf_factorize {
         path("${id}/cnmf_tmp/*.k_*.iter_*.df.npz", emit: files)
         
     script:
+        def config = Configurer.process(params).cnmf
         cmd = 
         """
         # We need to do some jujitsu to get this to work, as nextflow cannot write outside the process dir    
@@ -123,7 +130,11 @@ process cnmf_factorize {
         --name ${id} \
         --worker-index ${worker_index} \
         --total-workers ${n_workers}
-        """
+        """.stripIndent().trim()
+
+        if (config.factorize.args) {
+            cmd += " ${config.factorize.args}"
+        }
     
         cmd
 }

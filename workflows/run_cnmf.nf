@@ -1,8 +1,7 @@
 #!/usr/bin/env nextflow
 
 // Processes
-include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc_summary } from "../processes/cnmf.nf"
-include { cnmf_prepare_gpu; cnmf_factorize_gpu; cnmf_consensus_gpu } from "../processes/cnmf_gpu.nf"
+include { cnmf_prepare; cnmf_factorize; cnmf_combine; cnmf_kselection; cnmf_consensus; cnmf_ktree; cnmf_summarize; cnmf_qc; cnmf_qc_summary } from "../processes/cnmf.nf"
 include { gsea; ora; decoupler; fetch_omnipath } from "../processes/enrichment.nf"
 include { magma_assoc } from "../processes/magma.nf"
 include { magma_concat as magma_concat_main } from "../processes/magma.nf"
@@ -37,8 +36,6 @@ workflow cnmf {
             throw new Exception("Number of workers (cnmf.n_workers) cannot exceed number of cnmf runs (cnmf.n_iter * cnmf.k.size()) or be smaller then 2")
         }
 
-        def gpu_config = CnmfGpuConfigurer.process(params.cnmf_gpu)
-        
         //------------------------------------------------------------
         // Id linking and ensembl reference
         fetch_id_linker(params.rn_ensembl_version, params.convert)
@@ -54,28 +51,20 @@ workflow cnmf {
                    fetch_id_linker.out.biotype_ensembl,
                    fetch_id_linker.out.biotype_gene_name)
         
-        // Prepare the cnmf input folder 
-        if (gpu_config.use_prepare) {
-            cnmf_prepared = cnmf_prepare_gpu(cnmf_staged.cnmf_in,
-                                             cnmf_staged.cnmf_in_tpm,
-                                             cnmf_staged.cnmf_in_hvg)
-        } else {
-            cnmf_prepared = cnmf_prepare(cnmf_staged.cnmf_in,
-                                         cnmf_staged.cnmf_in_tpm,
-                                         cnmf_staged.cnmf_in_hvg)
-        }
+        // Prepare the cNMF input folder. The process selects CPU or GPU-aware
+        // arguments and environment from params.cnmf_gpu.prepare.
+        cnmf_prepared = cnmf_prepare(cnmf_staged.cnmf_in,
+                                     cnmf_staged.cnmf_in_tpm,
+                                     cnmf_staged.cnmf_in_hvg)
          
         // Create the channel with the n_workers for jobs to run in parallel
         cnmf_factorize_in = cnmf_prepared
          .map { v -> (0..(cnmf_workers-1)).collect{ i -> tuple(*v, i) } }
          .flatMap()
         
-        // Perform the factorizations
-        if (gpu_config.use_factorize) {
-            cnmf_factorize_out = cnmf_factorize_gpu(cnmf_factorize_in, cnmf_workers)
-        } else {
-            cnmf_factorize_out = cnmf_factorize(cnmf_factorize_in, cnmf_workers)
-        }
+        // Perform the factorizations. The process selects its CPU or GPU
+        // runtime and arguments from the resolved cNMF configuration.
+        cnmf_factorize_out = cnmf_factorize(cnmf_factorize_in, cnmf_workers)
         
         // Wait for all the workers to complete, then:
         // Flatten all the output into a single path object
@@ -91,17 +80,9 @@ workflow cnmf {
         
         // Create consensus with or without h5ad
         if (params.cnmf.save_h5ad) {
-            if (gpu_config.use_consensus) {
-                cnmf_out = cnmf_consensus_gpu(cnmf_consensus_in, cnmf_combine_out, cnmf_staged.cnmf_in.map{row -> row[1]})
-            } else {
-                cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, cnmf_staged.cnmf_in.map{row -> row[1]})
-            }
+            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, cnmf_staged.cnmf_in.map{row -> row[1]})
         } else {
-            if (gpu_config.use_consensus) {
-                cnmf_out = cnmf_consensus_gpu(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
-            } else {
-                cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
-            }
+            cnmf_out = cnmf_consensus(cnmf_consensus_in, cnmf_combine_out, file("NO_H5AD"))
         }
         // This is the end of the cnmf processing
         
