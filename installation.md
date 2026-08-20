@@ -41,55 +41,17 @@ singularity.enabled = true
 More details: https://www.nextflow.io/docs/latest/container.html#singularity
 
 
-# Install scVI (optional)
-We will make a new enviroment for scVI to avoid conflicts and keep scVI optional so the pipeline is lighter
-You will ideally need a GPU for scVI to run
-```bash
-conda env create -f environment_scvi.yml
-conda activate sc-blipper-scvi 
-```
+# Verify GPU dependencies
 
-Note down the install path for the conda env, we will need it later for configuring the pipeline
-```bash
-echo $CONDA_PREFIX  # On Unix/Linux/macOS
-```
+The shared `environment.yml` includes the CPU, CUDA cNMF, and scVI dependencies.
+If you plan to run GPU cNMF or scVI, test the environment on a GPU node:
 
-At this point I strongly recommend testing GPU is working. If on HPC, make sure to request a GPU node
-You can test by running python and typing:
 ```python
-import torch
-print(torch.cuda.is_available()) # Should return True
 import jax
-print(jax.devices()) # Should show GPU devices
+import scvi
+import torch
+
+print(torch.cuda.is_available())  # Should return True
+print(jax.devices())              # Should include a GPU device
+print(scvi.__version__)
 ```
-
-Exit conda env
-```bash
-conda deactivate
-```
-
-## If this doesn't work
-
-Remove the conda enviroment you just created
-```bash
-conda remove -n sc-blipper-scvi --all
-```
-
-Manually create a new one
-```bash
-conda create -n sc-blipper-scvi python==3.10
-conda activate sc-blipper-scvi
-```
-
-Follow instructions here: https://docs.scvi-tools.org/en/1.0.0/installation.html
-Install Pytorch, JAX, they might need to be tweaked depending on your system and GPU
-Pytorch: https://pytorch.org/get-started/locally/
-JAX: https://docs.jax.dev/en/latest/installation.html#installation
-
-Cuda 12 on linux, make sure the CUDA version matches your GPU drivers
-```bash
-pip3 install torch torchvision
-pip3 install -U "jax[cuda12]"
-pip install scvi-tools scikit-misc ipython
-```
-
