@@ -244,7 +244,8 @@ process cnmf_consensus {
         tuple val(k), path("${id}/${id}.starcat_spectra.k_*"), emit: starcat_spectra_k
         tuple val(k), path("${id}/${id}.*.png"), emit: plots
         tuple val(k), path("${id}/${id}.*.h5ad"), optional: true, emit: h5ad
-        tuple val(k), path("${id}/cnmf_tmp/${id}.local_density_cache.k_${k}.merged.df.npz"), path("${id}/cnmf_tmp/${id}.spectra.k_${k}.merged.df.npz"),  path("${id}/cnmf_tmp/${id}.nmf_idvrun_params.yaml"),  path("${id}/cnmf_tmp/${id}.norm_counts.h5ad"), emit: qc_input
+        tuple val(k), path("${id}/${id}*.annotation.tsv"), path("${id}/${id}*.edist.tsv"), emit: qc_metrics
+        path("${id}/${id}*.edist.pdf"), emit: qc_plots
     script:
     
         String local_dens = params.cnmf.local_density.toString().replace('.', '_')
@@ -385,44 +386,6 @@ process cnmf_summarize {
         }
     
         cmd
-}
-
-
-process cnmf_qc {
-    
-    label params.cnmf.label
-    scratch params.rn_scratch
-    
-    container params.rn_container
-    conda params.rn_conda
-    
-    publishDir "$params.rn_publish_dir/cnmf/consensus/${id}/k_${k}", mode: 'symlink'
-    
-    input:
-        val(id)
-        tuple val(k), path(local_density), path(spectra_merged),  path(nmf_params),  path(norm_counts)
-    output:
-        tuple val(k), path("${id}*.annotation.tsv"), path("${id}*.edist.tsv"), emit: qc_metrics
-        path("*.pdf"), emit: qc_plots
-    script:
-    
-    cmd = 
-    """
-    run_qc_cnmf.py \
-    --spectra ${spectra_merged} \
-    --density ${local_density} \
-    --norm_counts ${norm_counts} \
-    --params ${nmf_params} \
-    --output ${id} \
-    --density_threshold ${params.cnmf.local_density} \
-    --k ${k}\
-    """
-    
-    if (params.cnmf.qc_skip_calc_varexp) {
-        cmd += " --skip_varexp"
-    }
-    
-    cmd
 }
 
 
