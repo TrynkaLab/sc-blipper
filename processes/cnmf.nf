@@ -1,5 +1,46 @@
 #!/usr/bin/env nextflow
 
+process cnmf_sampling {
+    label params.cnmf.label_high
+    scratch params.rn_scratch
+
+    container params.rn_container
+    conda params.rn_conda
+
+    publishDir "$params.rn_publish_dir/cnmf/sampling/${id}", mode: 'symlink'
+
+    input:
+        tuple val(id), path(file)
+    output:
+        tuple val(id), path("${id}/sampling/*.h5ad"), emit: sampled
+        path("${id}/sampling/manifest.json"), emit: manifest
+        path("${id}/sampling/*.cell_indices.npy"), emit: cell_indices
+
+    script:
+        def config = Configurer.process(params).cnmf.sampling
+        // The config stores the denominator; cNMF expects the retained fraction.
+        def fraction = 1.0 / config.sample_fraction
+        // Select HVGs later on the sample, not on the full input during sampling.
+        cmd =
+        """
+        cnmf sample \
+        --output-dir ./ \
+        --name '${id}' \
+        -c '${file}' \
+        --sample-method ${config.sample_method} \
+        --sample-fraction ${fraction} \
+        --sample-times ${config.sample_times} \
+        --sample-seed ${config.sample_seed} \
+        --sample-numgenes 0
+        """.stripIndent().trim()
+
+        if (config.sample_prefix != null) {
+            cmd += " --sample-prefix '${config.sample_prefix}'"
+        }
+
+        cmd
+}
+
 process cnmf_pre_process {
     label params.cnmf.label_high
     scratch params.rn_scratch
@@ -250,6 +291,7 @@ process cnmf_consensus {
     script:
     
         String local_dens = params.cnmf.local_density.toString().replace('.', '_')
+        String streamingArg = params.cnmf.streaming ? '--streaming' : ''
     
         cmd = 
         """
@@ -271,7 +313,7 @@ process cnmf_consensus {
         --name ${id} \
         --components ${k} \
         --local-density-threshold ${params.cnmf.local_density} \
-        --show-clustering
+        --show-clustering ${streamingArg}
         
         # Zip the textfiles
         find ${id} -maxdepth 1 -type f -name "*.txt" ! -xtype l -exec gzip {} \\;
